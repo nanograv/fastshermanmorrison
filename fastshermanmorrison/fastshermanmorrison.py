@@ -149,7 +149,7 @@ class FastShermanMorrison(ShermanMorrison):
                 raise TypeError
         elif other.ndim == 2:
             if left_array is None:
-                raise NotImplementedError("ShermanMorrison does not implement _solve_D2")
+                raise NotImplementedError("FastShermanMorrison does not implement _solve_D2")
             elif left_array is not None and left_array.ndim == 2:
                 ret = self._solve_2D2(other, left_array)
             elif left_array is not None and left_array.ndim == 1:

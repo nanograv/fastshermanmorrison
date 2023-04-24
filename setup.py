@@ -1,5 +1,3 @@
-import os
-import sys
 import numpy
 
 from setuptools import setup
@@ -12,21 +10,11 @@ requirements = [
     "scipy>=1.2.0",
 ]
 
-# Cython extensions
 ext_modules=[
-    #Extension('fastshermanmorrison.choleskyext_omp',
-    #         ['fastshermanmorrison/choleskyext_omp.pyx'],
-    #         include_dirs = [numpy.get_include(), 'fastshermanmorrison/'],
-    #         extra_link_args=["-liomp5"],
-    #         extra_compile_args=["-O2", "-fopenmp", "-fno-wrapv"]),
-    #Extension('fastshermanmorrison.choleskyext',
-    #         ['fastshermanmorrison/choleskyext.pyx'],
-    #         include_dirs = [numpy.get_include(), 'fastshermanmorrison/'],
-    #         extra_compile_args=["-O2", "-fno-wrapv"])  # 50% more efficient!
     Extension('fastshermanmorrison.cython_fastshermanmorrison',
              ['fastshermanmorrison/cython_fastshermanmorrison.pyx'],
              include_dirs = [numpy.get_include(), 'fastshermanmorrison/'],
-             extra_compile_args=["-O2", "-fno-wrapv"])  # 50% more efficient!
+             extra_compile_args=["-O2", "-fno-wrapv"])
 ]
 
 setup(
