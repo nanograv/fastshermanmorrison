@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0", "numpy>=1.16.3", "cython>=0.29.32", "scipy>=1.2.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fastshermanmorrison-pulsar"
+version = "0.1.0"
+authors = [
+    {name="Rutger van Haasteren", email="rutger@vhaasteren.com"},
+]
+description = "The Enterprise add-on FastShermanMorrison for optimized EcorrKernel calculations"
+readme = "README.md"
+license = {file="LICENSE"}
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/vhaasteren/fastshermanmorrison"
+"Bug Tracker" = "https://github.com/vhaasteren/fastshermanmorrison/issues"

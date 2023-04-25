@@ -114,29 +114,6 @@ static void blas_block_shermor_2D_asym(
             d_beta = -1.0 / (d_nisum + 1.0/pd_Jvec[cc]);
 
             /* Calculate zn1 = np.dot(niblock, Zblock1) */
-            /* Use dgemm */
-            /*
-            m = 1;
-            n = n_Z1_cols;
-            k = n_jblock;
-            lda = 1;
-            ldc = 1;
-            transa = "N";
-            if(n_Z1_row_major) {
-                transb = "T";
-                ldb = n_Z1_cols;
-                n_index = n_jblock_i*n_Z1_cols;
-            } else {
-                transb = "N";
-                ldb = n_Z1_rows;
-                n_index = n_jblock_i;
-            }
-
-            dgemm_(transa, transb, &m, &n, &k, &d_galpha, &pd_ni[n_jblock_i],
-                    &lda, &pd_Z1[n_index], &ldb, &d_gbeta, pd_zn1, &ldc);
-            */
-
-            /* Calculate zn1 = np.dot(niblock, Zblock1) */
             /* Use dgemv */
             lda = 1;
             ldc = 1;
@@ -155,30 +132,6 @@ static void blas_block_shermor_2D_asym(
             }
             dgemv_(transb, &m, &n, &d_galpha, &pd_Z1[n_index], &ldb,
                     &pd_ni[n_jblock_i], &lda, &d_gbeta, pd_zn1, &ldc);
-
-
-            /* Calculate zn2 = np.dot(niblock, Zblock2) */
-            /* Use dgemm */
-            /*
-            m = 1;
-            n = n_Z2_cols;
-            k = n_jblock;
-            lda = 1;
-            ldc = 1;
-            transa = "N";
-            if(n_Z2_row_major) {
-                transb = "T";
-                ldb = n_Z2_cols;
-                n_index = n_jblock_i*n_Z2_cols;
-            } else {
-                transb = "N";
-                ldb = n_Z1_rows;
-                n_index = n_jblock_i;
-            }
-
-            dgemm_(transa, transb, &m, &n, &k, &d_galpha, &pd_ni[n_jblock_i],
-                    &lda, &pd_Z2[n_index], &ldb, &d_gbeta, pd_zn2, &ldc);
-            */
 
             /* Calculate zn2 = np.dot(niblock, Zblock2) */
             /* Use dgemv */
@@ -201,7 +154,6 @@ static void blas_block_shermor_2D_asym(
                     &pd_ni[n_jblock_i], &lda, &d_gbeta, pd_zn2, &ldc);
 
             /* Calculate zNz -= beta * np.outer(zn1.T, zn2) */
-            /* beta is negative, because this is an update to pd_ZNZ */
             m = n_Z1_cols;
             n = n_Z2_cols;
             k = 1;

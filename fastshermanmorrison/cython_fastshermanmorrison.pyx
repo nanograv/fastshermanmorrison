@@ -51,10 +51,10 @@ def cython_block_shermor_0D( \
     """
     Sherman-Morrison block-inversion for Jitter (Cythonized)
 
-    @param r:       The timing residuals, array (n)
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param r:       The timing residuals, array (n)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -94,10 +94,10 @@ def cython_block_shermor_0D_ld( \
     """
     Sherman-Morrison block-inversion for Jitter (Cythonized)
 
-    @param r:       The timing residuals, array (n)
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param r:       The timing residuals, array (n)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -136,10 +136,10 @@ def python_block_shermor_1D(r, Nvec, Jvec, Uinds):
     """
     Sherman-Morrison block-inversion for Jitter
 
-    @param r:       The timing residuals, array (n)
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param r:       The timing residuals, array (n)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -170,10 +170,10 @@ def cython_block_shermor_1D( \
     """
     Sherman-Morrison block-inversion for Jitter (Cythonized)
 
-    @param r:       The timing residuals, array (n)
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param r:       The timing residuals, array (n)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -216,10 +216,10 @@ def cython_block_shermor_1D1( \
     """
     Sherman-Morrison block-inversion for Jitter (Cythonized)
 
-    @param r:       The timing residuals, array (n)
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param r:       The timing residuals, array (n)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -258,10 +258,10 @@ def python_block_shermor_2D(Z, Nvec, Jvec, Uinds):
     """
     Sherman-Morrison block-inversion for Jitter, ZNiZ
 
-    @param Z:       The design matrix, array (n x m)
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param Z:       The design matrix, array (n x m)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -296,10 +296,10 @@ def cython_block_shermor_2D( \
     """
     Sherman-Morrison block-inversion for Jitter (Cythonized)
 
-    @param Z:       The design matrix, array (n x m)
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param Z:       The design matrix, array (n x m)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -339,11 +339,11 @@ def python_block_shermor_2D_asymm(Z1, Z2, Nvec, Jvec, Uinds):
     """
     Sherman-Morrison block-inversion for Jitter, ZNiZ
 
-    @param Z:       The design matrix, array (n x m)
-    @param Z2:      The second design matrix, array (n x m2)
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param Z:       The design matrix, array (n x m)
+    :param Z2:      The second design matrix, array (n x m2)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -382,11 +382,11 @@ def cython_block_shermor_2D_asymm(
     """
     Sherman-Morrison block-inversion for Jitter, ZNiZ
 
-    @param Z:       The design matrix, array (n x m)
-    @param Z2:      The second design matrix, array (n x m2)
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param Z:       The design matrix, array (n x m)
+    :param Z2:      The second design matrix, array (n x m2)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -432,10 +432,10 @@ def python_draw_ecor(r, Nvec, Jvec, Uinds):
     """
     Given Jvec, draw new epoch-averaged residuals
 
-    @param r:       The timing residuals, array (n)
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param r:       The timing residuals, array (n)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -467,10 +467,10 @@ def cython_draw_ecor( \
     """
     Given Jvec, draw new epoch-averaged residuals
 
-    @param r:       The timing residuals, array (n)
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param r:       The timing residuals, array (n)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -514,10 +514,10 @@ def cython_shermor_draw_ecor( \
     Do both the Sherman-Morrison block-inversion for Jitter,
     and the draw of the ecor parameters together (Cythonized)
 
-    @param r:       The timing residuals, array (n)
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param r:       The timing residuals, array (n)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -571,10 +571,10 @@ def cython_update_ea_residuals( \
     residuals, so that these can be further processed by the other conditional
     probability density functions.
 
-    @param gibbsresiduals:      The timing residuals, array (n)
-    @param gibbssubresiduals:   The white noise amplitude, array (n)
-    @param eat:                 epoch averaged residuals (k)
-    @param Uinds:               The start/finish indices for the jitter blocks
+    :param gibbsresiduals:      The timing residuals, array (n)
+    :param gibbssubresiduals:   The white noise amplitude, array (n)
+    :param eat:                 epoch averaged residuals (k)
+    :param Uinds:               The start/finish indices for the jitter blocks
                                 (k x 2)
 
     """
@@ -596,10 +596,10 @@ def cython_Uj(np.ndarray[np.double_t,ndim=1] j, \
     Given epoch-averaged residuals (j), get the residuals.
     Used in 'updateDetSources'
 
-    @param j:                   epoch averaged residuals (k)
-    @param Uinds:               The start/finish indices for the jitter blocks
+    :param j:                   epoch averaged residuals (k)
+    :param Uinds:               The start/finish indices for the jitter blocks
                                 (k x 2)
-    @param nobs:                Number of observations (length return vector)
+    :param nobs:                Number of observations (length return vector)
 
     """
     cdef unsigned int k = Uinds.shape[0], ii, cc
@@ -619,8 +619,8 @@ def cython_UTx(np.ndarray[np.double_t,ndim=1] x, \
     Given residuals (x), get np.dot(U.T, x)
     Used in 'updateDetSources'
 
-    @param j:                   epoch averaged residuals (k)
-    @param Uinds:               The start/finish indices for the jitter blocks
+    :param j:                   epoch averaged residuals (k)
+    :param Uinds:               The start/finish indices for the jitter blocks
                                 (k x 2)
 
     """
@@ -647,10 +647,10 @@ def cython_logdet_dN( \
         - N^{-1} is the ecorr-include N inverse
         - dN/dNp is the diagonal derivate of N wrt Np
 
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param dNvec:   The white noise derivative, array (n)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param dNvec:   The white noise derivative, array (n)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -696,10 +696,10 @@ def cython_logdet_dJ( \
         - dN/dJp = U dJ/dJp U^{T}, with dJ/dJp the diagnal derivative of J wrt
           Jp
 
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param dJvec:   The jitter derivative, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param dJvec:   The jitter derivative, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -740,11 +740,11 @@ def cython_logdet_dN_dN( \
         - N^{-1} is the ecorr-include N inverse
         - dN/dNpx is the diagonal derivate of N wrt Npx
 
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param dNvec1:  The white noise derivative, array (n)
-    @param dNvec2:  The white noise derivative, array (n)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param dNvec1:  The white noise derivative, array (n)
+    :param dNvec2:  The white noise derivative, array (n)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -801,11 +801,11 @@ def cython_logdet_dN_dJ( \
         - dN/dJp = U dJ/dJp U^{T}, with dJ/dJp the diagnal derivative of J wrt
           Jp
 
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param dNvec:   The white noise derivative, array (n)
-    @param dJvec:   The white noise ecor derivative, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param dNvec:   The white noise derivative, array (n)
+    :param dJvec:   The white noise ecor derivative, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -853,11 +853,11 @@ def cython_logdet_dJ_dJ( \
         - dN/dJpx = U dJ/dJpx U^{T}, with dJ/dJpx the diagnal derivative of J wrt
           Jpx
 
-    @param Nvec:    The white noise amplitude, array (n)
-    @param Jvec:    The jitter amplitude, array (k)
-    @param dJvec1:  The white noise derivative, array (k)
-    @param dJvec2:  The white noise derivative, array (k)
-    @param Uinds:   The start/finish indices for the jitter blocks (k x 2)
+    :param Nvec:    The white noise amplitude, array (n)
+    :param Jvec:    The jitter amplitude, array (k)
+    :param dJvec1:  The white noise derivative, array (k)
+    :param dJvec2:  The white noise derivative, array (k)
+    :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
     For this version, the residuals need to be sorted properly so that all the
     blocks are continuous in memory. Here, there are n residuals, and k jitter
@@ -893,7 +893,7 @@ cpdef double c_blas_block_shermor_2D_asymm(
             np.ndarray[np.double_t,ndim=2] Z2,
             np.ndarray[np.double_t,ndim=1] Nvec,
             np.ndarray[np.double_t,ndim=1] Jvec,
-            Uinds, #Need to copy, because Cython can't always use numpy integer arrays. Bah
+            Uinds,
             np.ndarray[np.double_t,ndim=2] ZNZ,
         ):
     cdef double d_Jldet
