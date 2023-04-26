@@ -3,7 +3,7 @@ from setuptools import Extension
 from distutils.command.build import build as build_orig
 
 
-__version__ = "0.0.1"
+__version__ = "0.0.3"
 
 ext_modules=[
     Extension(
@@ -53,6 +53,9 @@ setup(
     ext_modules = ext_modules,
     package_data={
         "base": ["README", "LICENSE", "AUTHORS.md"],
+        "fastshermanmorrison": ["fastshermanmorrison/cython_fastshermanmorrison.pyx",
+                                "fastshermanmorrison/fastshermanmorrison.c",
+                                "fastshermanmorrison/fastshermanmorrison.py"],
     },
     cmdclass={"build": build},
 )
