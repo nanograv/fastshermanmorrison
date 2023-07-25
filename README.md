@@ -22,9 +22,6 @@ From Pypi, you can do
 pip install fastshermanmorrison-pulsar
 ```
 
-To install via `conda`, simply do
-
-```bash
-conda install -c conda-forge fastshermanmorrison-pulsar
-```
+Conda requires cpu architecture-specific compiles, so that is currently not
+supported. 
 
