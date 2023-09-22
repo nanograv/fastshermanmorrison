@@ -3,7 +3,7 @@ from setuptools import Extension
 from distutils.command.build import build as build_orig
 
 
-__version__ = "0.0.4"
+__version__ = "0.1.0"
 
 ext_modules=[
     Extension(

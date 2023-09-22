@@ -6,6 +6,12 @@ from libc.math cimport log, sqrt
 import cython
 from scipy.linalg.cython_blas cimport dgemm, dger, dgemv
 
+# TODO: update the functions to work with indices
+#       cython_block_shermor_0D              ->  cython_idx_block_shermor_0D
+#       cython_block_shermor_1D1             ->  cython_idx_block_shermor_1D1
+#       cython_block_shermor_1D              ->  cython_idx_block_shermor_1D
+#       cython_blas_block_shermor_2D_asymm   ->
+
 cdef public void dgemm_(char *transa, char *transb, int *m, int *n, int *k,
                           double *alpha, double *a, int *lda, double *b,
                           int *ldb, double *beta, double *c, int *ldc):
@@ -22,7 +28,6 @@ cdef public void dger_(int *m, int *n, double *alpha, double *x, int *incx,
                           double *y, int *incy, double *a, int *lda):
     """Public dger that can be used in the external C code"""
     dger(m, n, alpha, x, incx, y, incy, a, lda)
-
 
 cdef extern from "fastshermanmorrison.c":
     void blas_block_shermor_2D_asym(
@@ -86,6 +91,52 @@ def cython_block_shermor_0D( \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
+def cython_idx_block_shermor_0D( \
+        np.ndarray[np.double_t,ndim=1] r, \
+        np.ndarray[np.double_t,ndim=1] Nvec, \
+        np.ndarray[np.double_t,ndim=1] Jvec, \
+        np.ndarray[np.int_t,ndim=2] Uinds, \
+        np.ndarray[np.int_t,ndim=1] slc_isort):
+    """
+    Sherman-Morrison block-inversion for Jitter (Cythonized)
+
+    :param r:           The timing residuals, array (n)
+    :param Nvec:        The white noise amplitude, array (n)
+    :param Jvec:        The jitter amplitude, array (k)
+    :param Uinds:       The start/finish indices for the jitter blocks (k x 2)
+    :param slc_isort:   The sorting of indices for which Uinds is valid
+
+    For this version, the residuals need not be sorted Here, there are n
+    residuals, and k jitter parameters.
+    """
+    cdef unsigned int cc, ii, idx, cols = len(Jvec)
+    cdef double Jldet=0.0, ji, beta, nir, nisum
+    cdef np.ndarray[np.double_t,ndim=1] ni = np.empty(len(r), 'd')
+    cdef np.ndarray[np.double_t,ndim=1] Nx = r / Nvec
+
+    ni = 1.0 / Nvec
+
+    for cc in range(cols):
+        if Jvec[cc] > 0.0:
+            ji = 1.0 / Jvec[cc]
+
+            nir = 0.0
+            nisum = 0.0
+            for ii in range(Uinds[cc,0],Uinds[cc,1]):
+                idx = slc_isort[ii]
+                nisum += ni[idx]
+                nir += r[idx]*ni[idx]
+
+            beta = 1.0 / (nisum + ji)
+
+            for ii in range(Uinds[cc,0],Uinds[cc,1]):
+                idx = slc_isort[ii]
+                Nx[idx] -= beta * nir * ni[idx]
+
+    return Nx
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def cython_block_shermor_0D_ld( \
         np.ndarray[np.double_t,ndim=1] r, \
         np.ndarray[np.double_t,ndim=1] Nvec, \
@@ -131,7 +182,6 @@ def cython_block_shermor_0D_ld( \
 
     return Jldet, Nx
 
-
 def python_block_shermor_1D(r, Nvec, Jvec, Uinds):
     """
     Sherman-Morrison block-inversion for Jitter
@@ -141,9 +191,8 @@ def python_block_shermor_1D(r, Nvec, Jvec, Uinds):
     :param Jvec:    The jitter amplitude, array (k)
     :param Uinds:   The start/finish indices for the jitter blocks (k x 2)
 
-    For this version, the residuals need to be sorted properly so that all the
-    blocks are continuous in memory. Here, there are n residuals, and k jitter
-    parameters.
+    For this version, the residuals need not be sorted. Here, there are n
+    residuals, and k jitter parameters.
     """
     ni = 1.0 / Nvec
     Jldet = np.einsum('i->', np.log(Nvec))
@@ -207,6 +256,53 @@ def cython_block_shermor_1D( \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
+def cython_idx_block_shermor_1D( \
+        np.ndarray[np.double_t,ndim=1] r, \
+        np.ndarray[np.double_t,ndim=1] Nvec, \
+        np.ndarray[np.double_t,ndim=1] Jvec, \
+        np.ndarray[np.int_t,ndim=2] Uinds, \
+        np.ndarray[np.int_t,ndim=1] slc_isort):
+    """
+    Sherman-Morrison block-inversion for Jitter (Cythonized)
+
+    :param r:           The timing residuals, array (n)
+    :param Nvec:        The white noise amplitude, array (n)
+    :param Jvec:        The jitter amplitude, array (k)
+    :param Uinds:       The start/finish indices for the jitter blocks (k x 2)
+    :param slc_isort:   The sorting of indices for which Uinds is valid
+
+    For this version, the residuals need not be sorted. Here, there are n
+    residuals, and k jitter parameters.
+    """
+    cdef unsigned int cc, ii, idx, rows = len(r), cols = len(Jvec)
+    cdef double Jldet=0.0, ji, beta, xNx=0.0, nir, nisum
+    cdef np.ndarray[np.double_t,ndim=1] ni = np.empty(rows, 'd')
+
+    ni = 1.0 / Nvec
+
+    for cc in range(rows):
+        Jldet += log(Nvec[cc])
+        xNx += r[cc]*r[cc]*ni[cc]
+
+    for cc in range(cols):
+        if Jvec[cc] > 0.0:
+            ji = 1.0 / Jvec[cc]
+
+            nir = 0.0
+            nisum = 0.0
+            for ii in range(Uinds[cc,0],Uinds[cc,1]):
+                idx = slc_isort[ii]
+                nisum += ni[idx]
+                nir += r[idx]*ni[idx]
+
+            beta = 1.0 / (nisum + ji)
+            Jldet += log(Jvec[cc]) - log(beta)
+            xNx -= beta * nir * nir
+
+    return Jldet, xNx
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def cython_block_shermor_1D1( \
         np.ndarray[np.double_t,ndim=1] x, \
         np.ndarray[np.double_t,ndim=1] y, \
@@ -253,6 +349,55 @@ def cython_block_shermor_1D1( \
 
     return Jldet, yNx
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cython_idx_block_shermor_1D1( \
+        np.ndarray[np.double_t,ndim=1] x, \
+        np.ndarray[np.double_t,ndim=1] y, \
+        np.ndarray[np.double_t,ndim=1] Nvec, \
+        np.ndarray[np.double_t,ndim=1] Jvec, \
+        np.ndarray[np.int_t,ndim=2] Uinds, \
+        np.ndarray[np.int_t,ndim=1] slc_isort):
+    """
+    Sherman-Morrison block-inversion for Jitter (Cythonized)
+
+    :param r:           The timing residuals, array (n)
+    :param Nvec:        The white noise amplitude, array (n)
+    :param Jvec:        The jitter amplitude, array (k)
+    :param Uinds:       The start/finish indices for the jitter blocks (k x 2)
+    :param slc_isort:   The sorting of indices for which Uinds is valid
+
+    For this version, the residuals need not be sorted. Here, there are n
+    residuals, and k jitter parameters.
+    """
+    cdef unsigned int cc, ii, idx, rows = len(x), cols = len(Jvec)
+    cdef double Jldet=0.0, ji, beta, yNx=0.0, nix, niy, nisum
+    cdef np.ndarray[np.double_t,ndim=1] ni = np.empty(rows, 'd')
+
+    ni = 1.0 / Nvec
+
+    for cc in range(rows):
+        Jldet += log(Nvec[cc])
+        yNx += y[cc]*x[cc]*ni[cc]
+
+    for cc in range(cols):
+        if Jvec[cc] > 0.0:
+            ji = 1.0 / Jvec[cc]
+
+            nix = 0.0
+            niy = 0.0
+            nisum = 0.0
+            for ii in range(Uinds[cc,0],Uinds[cc,1]):
+                idx = slc_isort[ii]
+                nisum += ni[idx]
+                nix += x[idx]*ni[idx]
+                niy += y[idx]*ni[idx]
+
+            beta = 1.0 / (nisum + ji)
+            Jldet += log(Jvec[cc]) - log(beta)
+            yNx -= beta * nix * niy
+
+    return Jldet, yNx
 
 def python_block_shermor_2D(Z, Nvec, Jvec, Uinds):
     """
@@ -370,7 +515,6 @@ def python_block_shermor_2D_asymm(Z1, Z2, Nvec, Jvec, Uinds):
 
     return Jldet, zNz
 
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def cython_block_shermor_2D_asymm(
@@ -426,7 +570,6 @@ def cython_block_shermor_2D_asymm(
             Jldet += log(Jvec[cc]) - log(beta)
 
     return Jldet, zNz
-
 
 def python_draw_ecor(r, Nvec, Jvec, Uinds):
     """
@@ -502,7 +645,6 @@ def cython_draw_ecor( \
 
     return rv
 
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def cython_shermor_draw_ecor( \
@@ -557,7 +699,6 @@ def cython_shermor_draw_ecor( \
             xNx -= beta * nir * nir
 
     return Jldet, xNx, rv
-
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -885,7 +1026,6 @@ def cython_logdet_dJ_dJ( \
 
     return tr
 
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cpdef double c_blas_block_shermor_2D_asymm(
@@ -943,3 +1083,17 @@ def cython_blas_block_shermor_2D_asymm(Z1, Z2, Nvec, Jvec, Uinds):
 
     return Jldet, ZNZ
 
+def cython_blas_idx_block_shermor_2D_asymm(Z1, Z2, Nvec, Jvec, Uinds, slc_isort):
+    """Wrapper for the C/Cython code
+
+    Because we have (potentially) non-contiguous blocks in memory for Z1/Z2
+    we just re-order Z1 and Z2 here pre-emptively
+    """
+    Z1n = Z1[slc_isort,:]
+    Z2n = Z2[slc_isort,:]
+    Nvecn = Nvec[slc_isort]
+
+    ZNZ = np.zeros((Z1n.shape[1], Z2n.shape[1]), order='F')
+    Jldet = c_blas_block_shermor_2D_asymm(Z1n, Z2n, Nvecn, Jvec, np.array(Uinds, order="C"), ZNZ)
+
+    return Jldet, ZNZ

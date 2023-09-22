@@ -179,7 +179,3 @@ static void blas_block_shermor_2D_asym(
 
 }
 
-
-
-
-
