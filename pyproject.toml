@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fastshermanmorrison-pulsar"
+dynamic = ["version"]
 authors = [
     {name="Rutger van Haasteren", email="rutger@vhaasteren.com"},
 ]
