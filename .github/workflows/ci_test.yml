@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ['3.9', '3.11', '3.12']
+        python-version: ['3.9', '3.10', '3.11', '3.12']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -71,6 +71,8 @@ jobs:
           CIBW_BEFORE_BUILD: "pip install scipy>=1.11.3 --only-binary=scipy"
           CIBW_BUILD_VERBOSITY: 1
           CIBW_SKIP: "pp* cp27-* cp35-* cp36-* cp37-* cp38-*"
+          CIBW_ARCHS: "x86_64"  # Only build wheels for x86_64
+          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"  # Use the manylinux2014 image for x86_64
       - name: Build source distribution
         run: python setup.py sdist
       - uses: actions/upload-artifact@v3
@@ -107,7 +109,7 @@ jobs:
 #    runs-on: ubuntu-latest
 #    strategy:
 #      matrix:
-#        python-version: ['3.9', '3.11', '3.12']
+#        python-version: ['3.9', '3.10', '3.11', '3.12']
 #    steps:
 #      - uses: actions/checkout@v2
 #      - name: Set up conda for Python ${{ matrix.python-version }}
