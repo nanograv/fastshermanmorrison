@@ -4,7 +4,6 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fastshermanmorrison-pulsar"
-version = "0.0.0"  # Example placeholder version, it will be replaced.
 dynamic = ["version"]
 authors = [
     {name="Rutger van Haasteren", email="rutger@vhaasteren.com"},
