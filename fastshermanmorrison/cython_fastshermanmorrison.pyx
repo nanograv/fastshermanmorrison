@@ -1,3 +1,10 @@
+# cython: language_level=3
+
+# Define this before importing from numpy
+cdef extern from "numpy/arrayobject.h":
+    #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+    pass
+
 cimport numpy as np
 import numpy as np
 np.import_array()
