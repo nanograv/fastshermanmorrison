@@ -2,7 +2,7 @@ name: Python package CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, anaconda ]
   pull_request:
     branches: [ main ]
   release:
@@ -112,29 +112,25 @@ jobs:
 
   conda-package:
     runs-on: ubuntu-latest
-    needs: build
-    strategy:
-      matrix:
-        python-version: ['3.9', '3.10', '3.11', '3.12']
+    needs: [tests, build]
     steps:
       - uses: actions/checkout@v3
-      - name: Set up conda for Python ${{ matrix.python-version }}
+      - name: Set up conda
         uses: conda-incubator/setup-miniconda@v2
         with:
           auto-update-conda: true
-          python-version: ${{ matrix.python-version }}
-          activate-environment: build-env
-          #environment-file: environment.yml
           conda-channels: anaconda, conda-forge
+      - name: Install conda-build and anaconda-client
+        run: |
+          conda install conda-build anaconda-client
       - name: Build conda package
         run: |
           conda config --set anaconda_upload no
-          PACKAGE_PATH=$(conda build recipe/ --output)
-          echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
-      - name: Upload conda package
+          conda build recipe/
+      - name: Upload conda package to Anaconda Cloud
         if: github.event_name == 'release' && github.ref == 'refs/heads/main'
         run: |
           echo "Uploading to Anaconda Cloud..."
-          anaconda -t ${{ secrets.ANACONDA_API_TOKEN }} upload ${{ env.PACKAGE_PATH }}
+          anaconda -t ${{ secrets.ANACONDA_API_TOKEN }} upload $(conda build recipe/ --output)
         env:
           ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_API_TOKEN }}

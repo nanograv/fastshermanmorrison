@@ -1,0 +1,41 @@
+{% set data = load_setup_py_data(setup_file='../setup.py') %}
+
+package:
+  name: "{{ data.get('name') }}"
+  version: "{{ data.get('version') }}"
+
+source:
+  path: ..
+
+build:
+  number: 0
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir -vvv"
+
+requirements:
+  host:
+    - python
+    - pip
+    - setuptools
+    - wheel
+    - setuptools_scm
+    - numpy
+    - cython
+  run:
+    - python
+    - numpy
+    - scipy
+
+test:
+  imports:
+    - fastshermanmorrison
+
+about:
+  home: "{{ data.get('project').get('urls').get('Homepage') }}"
+  license: "{{ data.get('project').get('license').get('file') }}"
+  license_file: ../LICENSE
+  summary: "{{ data.get('project').get('description') }}"
+  dev_url: "{{ data.get('project').get('urls').get('Bug Tracker') }}"
+
+extra:
+  authors: "{{ data.get('project').get('authors')[0].get('name') }}"
+  email: "{{ data.get('project').get('authors')[0].get('email') }}"
