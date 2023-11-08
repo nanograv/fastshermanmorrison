@@ -4,6 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fastshermanmorrison-pulsar"
+version = "0.0.0"  # Example placeholder version, it will be replaced.
+dynamic = ["version"]
 authors = [
     {name="Rutger van Haasteren", email="rutger@vhaasteren.com"},
 ]
@@ -24,3 +26,4 @@ classifiers = [
 [tool.setuptools_scm]
 # Optional: Write the version number to your package's __version__.py
 write_to = "fastshermanmorrison/version.py"
+write_to_template = "__version__ = '{version}'"
