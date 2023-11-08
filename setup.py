@@ -32,6 +32,7 @@ class build(build_orig):
 setup(
     name="fastshermanmorrison-pulsar",
     use_scm_version={
+        "fallback_version": "0.0.0",
         "write_to": "fastshermanmorrison/_version.py",
         "write_to_template": "__version__ = '{version}'",
     },
