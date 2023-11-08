@@ -1,6 +1,7 @@
 import numpy as np
 from . import cython_fastshermanmorrison as cfsm
 
+
 def indices_from_slice(slc):
     """Given a list of slice objects, return a list of index arrays"""
 
@@ -9,9 +10,10 @@ def indices_from_slice(slc):
     else:
         return np.arange(*slc.indices(slc.stop))
 
+
 def pack_indices(idxs):
     """Given a list of indices, provide the Cython tight packing
-    
+
     :param idxs: List of NumPy arrays containing indices for each ECORR block
     :return: sorting indices, and Uinds of the blocks
     """
@@ -27,12 +29,14 @@ def pack_indices(idxs):
     new_Uinds = np.column_stack([starts, stops])
 
     return slc_isort, new_Uinds
-        
+
+
 def extend_isort(isort, length):
     """Extend the isort index array if necessary"""
 
-    leftover = list(set(np.arange(length))-set(isort))
+    leftover = list(set(np.arange(length)) - set(isort))
     return np.concatenate([isort, leftover])
+
 
 class ShermanMorrison(object):
     """Custom container class for Sherman-morrison array inversion."""
@@ -123,7 +127,9 @@ class ShermanMorrison(object):
                 raise TypeError
         elif other.ndim == 2:
             if left_array is None:
-                raise NotImplementedError("ShermanMorrison does not implement _solve_D2")
+                raise NotImplementedError(
+                    "ShermanMorrison does not implement _solve_D2"
+                )
             elif left_array is not None and left_array.ndim == 2:
                 ret = self._solve_2D2(other, left_array)
             elif left_array is not None and left_array.ndim == 1:
@@ -134,7 +140,8 @@ class ShermanMorrison(object):
             raise TypeError
 
         return (ret, self._get_logdet()) if logdet else ret
-    
+
+
 class FastShermanMorrison(ShermanMorrison):
     """Custom container class for Sherman-morrison array inversion."""
 
@@ -161,7 +168,9 @@ class FastShermanMorrison(ShermanMorrison):
         if self._as_slice:
             return cfsm.cython_block_shermor_0D(x, self._nvec, self._jvec, self._uinds)
         else:
-            return cfsm.cython_idx_block_shermor_0D(x, self._nvec, self._jvec, self._uinds, self._slc_isort)
+            return cfsm.cython_idx_block_shermor_0D(
+                x, self._nvec, self._jvec, self._uinds, self._slc_isort
+            )
 
     def _solve_1D1(self, x, y):
         """Solves :math:`y^T N^{-1}x`, where :math:`x` and
@@ -169,9 +178,13 @@ class FastShermanMorrison(ShermanMorrison):
         """
 
         if self._as_slice:
-            _, yNx = cfsm.cython_block_shermor_1D1(x, y, self._nvec, self._jvec, self._uinds)
+            _, yNx = cfsm.cython_block_shermor_1D1(
+                x, y, self._nvec, self._jvec, self._uinds
+            )
         else:
-            _, yNx = cfsm.cython_idx_block_shermor_1D1(x, y, self._nvec, self._jvec, self._uinds, self._slc_isort)
+            _, yNx = cfsm.cython_idx_block_shermor_1D1(
+                x, y, self._nvec, self._jvec, self._uinds, self._slc_isort
+            )
 
         return yNx
 
@@ -181,12 +194,16 @@ class FastShermanMorrison(ShermanMorrison):
         """
 
         if self._as_slice:
-            _, ZNX = cfsm.cython_blas_block_shermor_2D_asymm(Z, X, self._nvec, self._jvec, self._uinds)
+            _, ZNX = cfsm.cython_blas_block_shermor_2D_asymm(
+                Z, X, self._nvec, self._jvec, self._uinds
+            )
         else:
-            if len(self._slc_isort)<Z.shape[0]:
+            if len(self._slc_isort) < Z.shape[0]:
                 self._slc_isort = extend_isort(self._slc_isort, Z.shape[0])
 
-            _, ZNX = cfsm.cython_blas_idx_block_shermor_2D_asymm(Z, X, self._nvec, self._jvec, self._uinds, self._slc_isort)
+            _, ZNX = cfsm.cython_blas_idx_block_shermor_2D_asymm(
+                Z, X, self._nvec, self._jvec, self._uinds, self._slc_isort
+            )
         return ZNX
 
     def _get_logdet(self):
@@ -195,9 +212,17 @@ class FastShermanMorrison(ShermanMorrison):
         """
 
         if self._as_slice:
-            logJdet, _ = cfsm.cython_block_shermor_1D(np.zeros_like(self._nvec), self._nvec, self._jvec, self._uinds)
+            logJdet, _ = cfsm.cython_block_shermor_1D(
+                np.zeros_like(self._nvec), self._nvec, self._jvec, self._uinds
+            )
         else:
-            logJdet, _ = cfsm.cython_idx_block_shermor_1D(np.zeros_like(self._nvec), self._nvec, self._jvec, self._uinds, self._slc_isort)
+            logJdet, _ = cfsm.cython_idx_block_shermor_1D(
+                np.zeros_like(self._nvec),
+                self._nvec,
+                self._jvec,
+                self._uinds,
+                self._slc_isort,
+            )
 
         return logJdet
 
@@ -213,7 +238,9 @@ class FastShermanMorrison(ShermanMorrison):
                 raise TypeError
         elif other.ndim == 2:
             if left_array is None:
-                raise NotImplementedError("FastShermanMorrison does not implement _solve_D2")
+                raise NotImplementedError(
+                    "FastShermanMorrison does not implement _solve_D2"
+                )
             elif left_array is not None and left_array.ndim == 2:
                 ret = self._solve_2D2(other, left_array)
             elif left_array is not None and left_array.ndim == 1:
@@ -224,4 +251,3 @@ class FastShermanMorrison(ShermanMorrison):
             raise TypeError
 
         return (ret, self._get_logdet()) if logdet else ret
-
