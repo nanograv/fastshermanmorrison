@@ -4,9 +4,10 @@ import unittest
 from fastshermanmorrison.fastshermanmorrison import ShermanMorrison
 from fastshermanmorrison.fastshermanmorrison import FastShermanMorrison
 
+
 class ShermanMorrisonRef(object):
     """Reference container class for Sherman-morrison array inversion.
-    
+
     This version uses the tried-and-true slice index formulation
     """
 
@@ -95,7 +96,9 @@ class ShermanMorrisonRef(object):
                 raise TypeError
         elif other.ndim == 2:
             if left_array is None:
-                raise NotImplementedError("ShermanMorrisonRef does not implement _solve_D2")
+                raise NotImplementedError(
+                    "ShermanMorrisonRef does not implement _solve_D2"
+                )
             elif left_array is not None and left_array.ndim == 2:
                 ret = self._solve_2D2(other, left_array)
             elif left_array is not None and left_array.ndim == 1:
@@ -106,15 +109,14 @@ class ShermanMorrisonRef(object):
             raise TypeError
 
         return (ret, self._get_logdet()) if logdet else ret
-    
+
 
 class TestFastShermanMorrison(unittest.TestCase):
-
     def get_test_data(self):
         """Set up test data that we use in the tests"""
 
         # Observing times and 'random' vector
-        x  = np.array([1.0, -1.0, 0.0, 3.0, -2.0, 1.0, -1.0, 4.0, 1.0, -1.0])
+        x = np.array([1.0, -1.0, 0.0, 3.0, -2.0, 1.0, -1.0, 4.0, 1.0, -1.0])
         x2 = x[::-1]
 
         # Some 2D test matrices
@@ -156,7 +158,7 @@ class TestFastShermanMorrison(unittest.TestCase):
 
         idxs = [np.array([iisort[idx] for idx in idxs]) for idxs in slc_inds]
 
-        #return isort, index_arrays[iisort]
+        # return isort, index_arrays[iisort]
         return isort, iisort, idxs
 
     def get_sm_objects(self):
@@ -191,28 +193,16 @@ class TestFastShermanMorrison(unittest.TestCase):
         sms, fsms, isort, iisort = self.get_shuffled_sm_objects()
 
         # Regular ShermanMorrison, with slice objects
-        self.assertTrue(np.allclose(
-            smr.solve(x),
-            sm.solve(x)
-        ))
+        self.assertTrue(np.allclose(smr.solve(x), sm.solve(x)))
 
         # Fast ShermanMorrison, with slice objects
-        self.assertTrue(np.allclose(
-            smr.solve(x),
-            fsm.solve(x)
-        ))
+        self.assertTrue(np.allclose(smr.solve(x), fsm.solve(x)))
 
         # Regular SermanMorrison, shuffled data
-        self.assertTrue(np.allclose(
-            smr.solve(x),
-            sms.solve(x[isort])[iisort]
-        ))
+        self.assertTrue(np.allclose(smr.solve(x), sms.solve(x[isort])[iisort]))
 
         # Fast SermanMorrison, shuffled data
-        self.assertTrue(np.allclose(
-            smr.solve(x),
-            fsms.solve(x[isort])[iisort]
-        ))
+        self.assertTrue(np.allclose(smr.solve(x), fsms.solve(x[isort])[iisort]))
 
     def test_solve_1D1(self):
         """Test the 1D1 solve routines"""
@@ -222,28 +212,16 @@ class TestFastShermanMorrison(unittest.TestCase):
         sms, fsms, isort, _ = self.get_shuffled_sm_objects()
 
         # Regular ShermanMorrison, with slice objects
-        self.assertEqual(
-            smr.solve(x, x2),
-            sm.solve(x, x2)
-        )
+        self.assertEqual(smr.solve(x, x2), sm.solve(x, x2))
 
         # Fast ShermanMorrison, with slice objects
-        self.assertEqual(
-            smr.solve(x, x2),
-            fsm.solve(x, x2)
-        )
+        self.assertEqual(smr.solve(x, x2), fsm.solve(x, x2))
 
         # Regular ShermanMorrison, shuffled data
-        self.assertEqual(
-            smr.solve(x, x2),
-            sms.solve(x[isort], x2[isort])
-        )
+        self.assertEqual(smr.solve(x, x2), sms.solve(x[isort], x2[isort]))
 
         # Fast ShermanMorrison, shuffled data
-        self.assertEqual(
-            smr.solve(x, x2),
-            fsms.solve(x[isort], x2[isort])
-        )
+        self.assertEqual(smr.solve(x, x2), fsms.solve(x[isort], x2[isort]))
 
     def test_solve_2D2(self):
         """Test the 2D2 solve routines"""
@@ -253,28 +231,20 @@ class TestFastShermanMorrison(unittest.TestCase):
         sms, fsms, isort, _ = self.get_shuffled_sm_objects()
 
         # Regular ShermanMorrison, with slice objects
-        self.assertTrue(np.allclose(
-            smr.solve(X, Z),
-            sm.solve(X, Z)
-        ))
+        self.assertTrue(np.allclose(smr.solve(X, Z), sm.solve(X, Z)))
 
         # Fast ShermanMorrison, with slice objects
-        self.assertTrue(np.allclose(
-            smr.solve(X, Z),
-            fsm.solve(X, Z)
-        ))
+        self.assertTrue(np.allclose(smr.solve(X, Z), fsm.solve(X, Z)))
 
         # Regular ShermanMorrison, shuffled data
-        self.assertTrue(np.allclose(
-            smr.solve(X, Z),
-            sms.solve(X[isort,:], Z[isort,:])
-        ))
+        self.assertTrue(
+            np.allclose(smr.solve(X, Z), sms.solve(X[isort, :], Z[isort, :]))
+        )
 
         # Fast ShermanMorrison, shuffled data
-        self.assertTrue(np.allclose(
-            smr.solve(X, Z),
-            fsms.solve(X[isort,:], Z[isort,:])
-        ))
+        self.assertTrue(
+            np.allclose(smr.solve(X, Z), fsms.solve(X[isort, :], Z[isort, :]))
+        )
 
     def test_solve_D2(self):
         """Test the D2 solve routines (exceptions)"""
@@ -351,26 +321,14 @@ class TestFastShermanMorrison(unittest.TestCase):
         _, sms_ld = sms.solve(x, logdet=True)
         _, fsms_ld = fsms.solve(x, logdet=True)
 
-        self.assertEqual(
-            smr_ld,
-            sm_ld
-        )
+        self.assertEqual(smr_ld, sm_ld)
 
-        self.assertEqual(
-            smr_ld,
-            fsm_ld
-        )
+        self.assertEqual(smr_ld, fsm_ld)
 
-        self.assertEqual(
-            smr_ld,
-            sms_ld
-        )
+        self.assertEqual(smr_ld, sms_ld)
 
-        self.assertEqual(
-            smr_ld,
-            fsms_ld
-        )
+        self.assertEqual(smr_ld, fsms_ld)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
