@@ -59,7 +59,6 @@ class ShermanMorrison(object):
 
         Nx = x / self._nvec
         for idx, jv in zip(self._idxs, self._jvec):
-            #if slc.stop - slc.start > 1:
             if len(idx) > 1:
                 rblock = x[idx]
                 niblock = 1 / self._nvec[idx]
@@ -75,7 +74,6 @@ class ShermanMorrison(object):
         Nx = x / self._nvec
         yNx = np.dot(y, Nx)
         for idx, jv in zip(self._idxs, self._jvec):
-            #if slc.stop - slc.start > 1:
             if len(idx) > 1:
                 xblock = x[idx]
                 yblock = y[idx]
@@ -91,7 +89,6 @@ class ShermanMorrison(object):
 
         ZNX = np.dot(Z.T / self._nvec, X)
         for idx, jv in zip(self._idxs, self._jvec):
-            #if slc.stop - slc.start > 1:
             if len(idx) > 1:
                 Zblock = Z[idx, :]
                 Xblock = X[idx, :]
@@ -108,7 +105,6 @@ class ShermanMorrison(object):
         """
         logdet = np.einsum("i->", np.log(self._nvec))
         for idx, jv in zip(self._idxs, self._jvec):
-            #if slc.stop - slc.start > 1:
             if len(idx) > 1:
                 niblock = 1 / self._nvec[idx]
                 beta = 1.0 / (np.einsum("i->", niblock) + 1.0 / jv)
