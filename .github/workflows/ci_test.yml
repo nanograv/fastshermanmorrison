@@ -98,7 +98,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: dist
-          path: ./
+          path: ./dist/
       - name: List files in dist
         run: echo "Content of dist:" && ls -lah dist/ && echo "Content of ./:" && ls -lah ./
       - name: Publish to PyPI
