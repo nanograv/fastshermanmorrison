@@ -1,16 +1,14 @@
-{% set data = load_setup_py_data(setup_file='../setup.py') %}
-
 package:
-  name: "{{ data.get('name') }}"
-  version: "{{ GIT_DESCRIBE_TAG }}"
+  name: "fastshermanmorrison-pulsar"
+  version: "{{ environ.get('GIT_DESCRIBE_TAG', '0.0.0') }}"
 
 source:
   git_url: https://github.com/vhaasteren/fastshermanmorrison.git
-  git_rev: main  # Replace with specific tag if needed
-  git_depth: 1  # Gets only the latest commit, shallow clone
+  git_rev: main  # or a specific tag if needed
+  git_depth: 1  # shallow clone
 
 build:
-  number: 0  # You can increment this for new builds of the same version
+  number: 0
   script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vv"
 
 requirements:
@@ -32,12 +30,8 @@ test:
     - fastshermanmorrison
 
 about:
-  home: "{{ data.get('project').get('urls').get('Homepage') }}"
-  license: "{{ data.get('project').get('license').get('file') }}"
+  home: "http://github.com/vhaasteren/fastshermanmorrison/"
+  license: "MIT"
   license_file: LICENSE
-  summary: "{{ data.get('project').get('description') }}"
-  dev_url: "{{ data.get('project').get('urls').get('Bug Tracker') }}"
-
-extra:
-  authors: "{{ data.get('project').get('authors')[0].get('name') }}"
-  email: "{{ data.get('project').get('authors')[0].get('email') }}"
+  summary: "Fast Sherman Morrison calculations for Enterprise"
+  dev_url: "http://github.com/vhaasteren/fastshermanmorrison/issues"
