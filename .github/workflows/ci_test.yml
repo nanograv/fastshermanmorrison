@@ -59,13 +59,6 @@ jobs:
         uses: actions/setup-python@v3
         with:
           python-version: '3.x'
-#      - name: Extract version from git tag
-#        id: get_version
-#        run: echo "::set-output name=VERSION::$(git describe --tags --abbrev=0)"
-#        shell: bash
-#      - name: Set package version
-#        run: |
-#          echo "__version__ = '${{ steps.get_version.outputs.VERSION }}'" > fastshermanmorrison/version.py
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel cython cibuildwheel==2.3.1
