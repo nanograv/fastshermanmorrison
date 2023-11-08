@@ -1,8 +1,3 @@
-# cython: language_level=3
-
-# Define this before importing from numpy
-# distutils: define_macros = [('NPY_NO_DEPRECATED_API', 'NPY_1_7_API_VERSION')]
-
 cimport numpy as np
 import numpy as np
 np.import_array()
