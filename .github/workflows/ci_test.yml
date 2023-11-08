@@ -77,8 +77,10 @@ jobs:
           #CIBW_BEFORE_BUILD: "pip install scipy>=1.11.3 --only-binary=scipy"
           CIBW_BEFORE_BUILD: "pip install numpy>=1.16.3 --only-binary=numpy scipy>=1.11.3 --only-binary=scipy"
           CIBW_BUILD_VERBOSITY: 1
-          CIBW_SKIP: "pp* cp27-* cp35-* cp36-* cp37-* cp38-*"
+          #CIBW_SKIP: "pp* cp27-* cp35-* cp36-* cp37-* cp38-*"
+          CIBW_SKIP: "pp* cp27-* cp35-* cp36-* cp37-* cp38-* *-win32 *-manylinux_i686 *-musllinux_i686 *-macosx_10_6_intel *-macosx_10_9_intel *-macosx_10_10_intel *-macosx_10_11_intel *-macosx_10_12_intel *-macosx_10_13_intel *-macosx_10_14_intel *-macosx_10_15_intel"
           CIBW_ARCHS: "x86_64"
+          CIBW_ARCHS_MACOS: "x86_64 arm64"
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
       - name: Build source distribution
         run: python setup.py sdist
