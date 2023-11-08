@@ -18,9 +18,9 @@ jobs:
         python-version: ['3.9', '3.10', '3.11', '3.12']
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -44,7 +44,7 @@ jobs:
           # Add your testing command/script here
           pytest --cov=fastshermanmorrison --cov-report xml:coverage.xml tests/
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
@@ -57,9 +57,9 @@ jobs:
     needs: tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           python-version: '3.x'
       - name: Install build dependencies
@@ -70,7 +70,7 @@ jobs:
           pip install "numpy>=1.16.3" --only-binary=numpy "scipy>=1.2.0" --only-binary=scipy
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Build wheels using cibuildwheel
-        run: cibuildwheel --output-dir wheelhouse
+        run: cibuildwheel --output-dir dist
         env:
           # If you need to build on a specific platform like macOS, set the CIBW_PLATFORM environment variable
           # CIBW_PLATFORM: "macos"
@@ -84,11 +84,11 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
       - name: Build source distribution
         run: python setup.py sdist
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: dist
           path: |
-            ./wheelhouse/*.whl
+            ./dist/*.whl
             ./dist/*.tar.gz
 
 
@@ -97,16 +97,16 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'release' #&& github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           python-version: '3.x'
       - name: Download built distributions
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: dist
-          path: ./dist/
+          path: ./
       - name: List files in dist
         run: echo "Content of dist:" && ls -lah dist/ && echo "Content of ./:" && ls -lah ./
       - name: Publish to PyPI
@@ -114,14 +114,15 @@ jobs:
           python -m pip install --upgrade twine
           #twine upload dist/*
           #twine upload --repository-url https://test.pypi.org/legacy dist/*
-          python -m twine upload dist/*
+          python -m twine upload ./dist/*
         env:
           #TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           #TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
-          TWINE_REPOSITORY: testpypi
-            
+          TWINE_REPOSITORY_URL: https://test.pypi.org/legacy/
+
+
 
 #  conda-package:
 #    runs-on: ubuntu-latest
