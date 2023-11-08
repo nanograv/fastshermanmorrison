@@ -2,7 +2,6 @@ from setuptools import setup, find_packages
 from setuptools import Extension
 from distutils.command.build import build as build_orig
 
-
 ext_modules = [
     Extension(
         name="fastshermanmorrison.cython_fastshermanmorrison",
