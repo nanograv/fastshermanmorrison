@@ -1,24 +1,6 @@
-import os
 from setuptools import setup, find_packages
 from setuptools import Extension
 from distutils.command.build import build as build_orig
-from setuptools.command.build_py import build_py
-
-# Dynamically calculate the version based on fastshermanmorrison.VERSION.
-version_path = os.path.join(
-    os.path.dirname(__file__), "fastshermanmorrison", "version.py"
-)
-version_ns = {}
-with open(version_path) as f:
-    exec(f.read(), {}, version_ns)
-
-
-class BuildPyCommand(build_py):
-    # Ensure that build_py command runs before build_ext.
-    def run(self):
-        self.run_command("build_ext")
-        return super().run()
-
 
 ext_modules = [
     Extension(
@@ -49,7 +31,10 @@ class build(build_orig):
 
 setup(
     name="fastshermanmorrison-pulsar",
-    version=version_ns["__version__"],
+    use_scm_version={
+        "write_to": "fastshermanmorrison/_version.py",
+        "write_to_template": "__version__ = '{version}'",
+    },
     description="Fast Sherman Morrison calculations for Enterprise",
     license="MIT",
     author="Rutger van Haasteren",

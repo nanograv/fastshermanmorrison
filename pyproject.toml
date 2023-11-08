@@ -23,6 +23,5 @@ classifiers = [
 "Bug Tracker" = "https://github.com/vhaasteren/fastshermanmorrison/issues"
 
 [tool.setuptools_scm]
-# Optional: Write the version number to your package's __version__.py
-write_to = "fastshermanmorrison/version.py"
+write_to = "fastshermanmorrison/_version.py"
 write_to_template = "__version__ = '{version}'"
