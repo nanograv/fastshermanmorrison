@@ -18,9 +18,9 @@ jobs:
         python-version: ['3.9', '3.10', '3.11', '3.12']
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -44,7 +44,7 @@ jobs:
           # Add your testing command/script here
           pytest --cov=fastshermanmorrison --cov-report xml:coverage.xml tests/
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
@@ -57,9 +57,9 @@ jobs:
     needs: tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v3
         with:
           python-version: '3.x'
       - name: Install build dependencies
@@ -84,7 +84,7 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
       - name: Build source distribution
         run: python setup.py sdist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         with:
           name: dist
           path: |
@@ -97,13 +97,13 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'release' #&& github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v3
         with:
           python-version: '3.x'
       - name: Download built distributions
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
         with:
           name: dist
           path: ./
