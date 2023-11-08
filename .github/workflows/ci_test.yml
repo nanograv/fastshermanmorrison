@@ -26,7 +26,6 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel cython
-          #pip install "scipy>=1.11.3" --only-binary=scipy
           pip install "numpy>=1.16.3" --only-binary=numpy "scipy>=1.11.3" --only-binary=scipy
           pip install black pytest pytest-cov
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
@@ -41,7 +40,6 @@ jobs:
         shell: bash
       - name: Run tests with pytest
         run: |
-          # Add your testing command/script here
           pytest --cov=fastshermanmorrison --cov-report xml:coverage.xml tests/
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -72,12 +70,8 @@ jobs:
       - name: Build wheels using cibuildwheel
         run: cibuildwheel --output-dir wheelhouse
         env:
-          # If you need to build on a specific platform like macOS, set the CIBW_PLATFORM environment variable
-          # CIBW_PLATFORM: "macos"
-          #CIBW_BEFORE_BUILD: "pip install scipy>=1.11.3 --only-binary=scipy"
           CIBW_BEFORE_BUILD: "pip install numpy>=1.16.3 --only-binary=numpy scipy>=1.11.3 --only-binary=scipy"
           CIBW_BUILD_VERBOSITY: 1
-          #CIBW_SKIP: "pp* cp27-* cp35-* cp36-* cp37-* cp38-*"
           CIBW_SKIP: "pp* cp27-* cp35-* cp36-* cp37-* cp38-* *-win32 *-manylinux_i686 *-musllinux_i686 *-macosx_10_6_intel *-macosx_10_9_intel *-macosx_10_10_intel *-macosx_10_11_intel *-macosx_10_12_intel *-macosx_10_13_intel *-macosx_10_14_intel *-macosx_10_15_intel"
           CIBW_ARCHS: "x86_64"
           CIBW_ARCHS_MACOS: "x86_64 arm64"
@@ -115,22 +109,22 @@ jobs:
           TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
 
-#  conda-package:
-#    runs-on: ubuntu-latest
-#    strategy:
-#      matrix:
-#        python-version: ['3.9', '3.10', '3.11', '3.12']
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: Set up conda for Python ${{ matrix.python-version }}
-#        uses: conda-incubator/setup-miniconda@v2
-#        with:
-#          auto-update-conda: true
-#          python-version: ${{ matrix.python-version }}
-#      - name: Build conda package
-#        run: conda build .
-#      - name: Upload conda package
-#        env:
-#          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_API_TOKEN }}
-#          USER_NAME: ${{ env.GITHUB_REPOSITORY_OWNER }}
-#        run: anaconda upload --user $USER_NAME $(conda build . --output)
+  conda-package:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up conda for Python ${{ matrix.python-version }}
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}
+      - name: Build conda package
+        run: conda build .
+      - name: Upload conda package
+        env:
+          ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_API_TOKEN }}
+          USER_NAME: ${{ env.GITHUB_REPOSITORY_OWNER }}
+        run: anaconda upload --user $USER_NAME $(conda build . --output)
