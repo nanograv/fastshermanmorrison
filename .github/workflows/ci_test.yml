@@ -84,7 +84,7 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
       - name: Build source distribution
         run: python setup.py sdist
-      - uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3
         with:
           name: dist
           path: |
