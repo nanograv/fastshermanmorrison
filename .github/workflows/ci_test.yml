@@ -20,7 +20,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -57,7 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v3
         with:
           python-version: '3.x'
       - name: Install build dependencies
@@ -65,12 +65,12 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel cython cibuildwheel==2.3.1
       - name: Install project dependencies
         run: |
-          pip install "numpy>=1.16.3" --only-binary=numpy "scipy>=1.11.3" --only-binary=scipy
+          pip install "numpy>=1.16.3" --only-binary=numpy "scipy>=1.2.0" --only-binary=scipy
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Build wheels using cibuildwheel
         run: cibuildwheel --output-dir wheelhouse
         env:
-          CIBW_BEFORE_BUILD: "pip install numpy>=1.16.3 --only-binary=numpy scipy>=1.11.3 --only-binary=scipy"
+          CIBW_BEFORE_BUILD: "pip install numpy>=1.16.3 --only-binary=numpy scipy>=1.2.0 --only-binary=scipy"
           CIBW_BUILD_VERBOSITY: 1
           CIBW_SKIP: "pp* cp27-* cp35-* cp36-* cp37-* cp38-* *-win32 *-manylinux_i686 *-musllinux_i686 *-macosx_10_6_intel *-macosx_10_9_intel *-macosx_10_10_intel *-macosx_10_11_intel *-macosx_10_12_intel *-macosx_10_13_intel *-macosx_10_14_intel *-macosx_10_15_intel"
           CIBW_ARCHS: "x86_64"
@@ -93,7 +93,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v3
         with:
           python-version: '3.x'
       - name: Download built distributions
@@ -104,7 +104,8 @@ jobs:
       - name: Publish to PyPI
         run: |
           python -m pip install --upgrade twine
-          twine upload dist/*
+          #twine upload dist/*
+          twine upload --repository-url https://test.pypi.org/legacy dist/*
         env:
           #TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
           #TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
