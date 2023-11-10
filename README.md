@@ -13,7 +13,7 @@ The FastShermanMorrison add-on to Enterprise can be easily installed straight
 from github using
 
 ```bash
-pip install git+https://github.com/vhaasteren/fastshermanmorrison.git
+pip install git+https://github.com/nanograv/fastshermanmorrison.git
 ```
 
 From Pypi, you can do

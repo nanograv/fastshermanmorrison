@@ -42,7 +42,7 @@ setup(
     author_email="rutger@vhaasteren.com",
     packages=find_packages(),
     package_dir={"fastshermanmorrison": "fastshermanmorrison"},
-    url="http://github.com/vhaasteren/fastshermanmorrison/",
+    url="http://github.com/nanograv/fastshermanmorrison/",
     long_description=open("README.md").read(),
     include_package_data=True,
     zip_safe=False,
