@@ -1,8 +1,6 @@
-{% set data = load_setup_py_data() %}
-
 package:
-  name: "{{ data.get('name') }}"
-  version: "{{ data.get('version') }}"
+  name: "fastshermanmorrison-pulsar"
+  version: "0.4.1"
 
 source:
   path: ..
@@ -29,11 +27,12 @@ test:
     - fastshermanmorrison
 
 about:
-  home: "{{ data.get('url') }}"
-  license: "{{ data.get('license') }}"
-  summary: "{{ data.get('description') }}"
-  doc_url: "{{ data.get('url') }}"
-  dev_url: "{{ data.get('url') }}"
+  home: "http://github.com/nanograv/fastshermanmorrison/"
+  license: "MIT"
+  license_file: LICENSE
+  summary: "Fast Sherman Morrison calculations for Enterprise"
+  doc_url: "http://github.com/nanograv/fastshermanmorrison/"
+  dev_url: "http://github.com/nanograv/fastshermanmorrison/"
 
 extra:
   recipe-maintainers:
