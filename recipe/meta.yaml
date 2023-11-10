@@ -1,11 +1,11 @@
+{% set data = load_setup_py_data() %}
+
 package:
-  name: "fastshermanmorrison-pulsar"
-  version: "{{ environ.get('GIT_DESCRIBE_TAG', '0.0.0') }}"
+  name: "{{ data.get('name') }}"
+  version: "{{ data.get('version') }}"
 
 source:
-  git_url: https://github.com/vhaasteren/fastshermanmorrison.git
-  git_rev: main  # or a specific tag if needed
-  git_depth: 1  # shallow clone
+  path: ..
 
 build:
   number: 0
@@ -16,10 +16,9 @@ requirements:
     - python
     - pip
     - setuptools
-    - wheel
-    - setuptools_scm
     - numpy
     - cython
+    - scipy
   run:
     - python
     - numpy
@@ -30,8 +29,12 @@ test:
     - fastshermanmorrison
 
 about:
-  home: "http://github.com/vhaasteren/fastshermanmorrison/"
-  license: "MIT"
-  license_file: LICENSE
-  summary: "Fast Sherman Morrison calculations for Enterprise"
-  dev_url: "http://github.com/vhaasteren/fastshermanmorrison/issues"
+  home: "{{ data.get('url') }}"
+  license: "{{ data.get('license') }}"
+  summary: "{{ data.get('description') }}"
+  doc_url: "{{ data.get('url') }}"
+  dev_url: "{{ data.get('url') }}"
+
+extra:
+  recipe-maintainers:
+    - rutgervanhaasteren
