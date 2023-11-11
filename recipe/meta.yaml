@@ -14,13 +14,14 @@ requirements:
     - python
     - pip
     - setuptools
-    - numpy
-    - cython
-    - scipy
+    - numpy >=1.16.3
+    - cython >=0.29.32
+    - scipy >=1.2.0
+    - pytest >=7.4.3
   run:
     - python
-    - numpy
-    - scipy
+    - numpy >=1.16.3
+    - scipy >=1.2.0
 
 test:
   imports:
