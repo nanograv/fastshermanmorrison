@@ -17,7 +17,7 @@ requirements:
     - numpy >=1.16.3
     - cython >=0.29.32
     - scipy >=1.2.0
-    - pytest >=7.4.3
+    - pytest >=7.4.0
   run:
     - python
     - numpy >=1.16.3
