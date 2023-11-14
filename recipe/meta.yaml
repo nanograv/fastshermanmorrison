@@ -1,9 +1,11 @@
 package:
   name: "fastshermanmorrison-pulsar"
-  version: "0.4.1"
+  version: "{{ environ.get('GIT_DESCRIBE_TAG', '0.0.0') }}"
 
 source:
-  path: ..
+  git_url: https://github.com/nanograv/fastshermanmorrison.git
+  git_rev: {{ environ.get('CONDA_GIT_BRANCH', 'main') }}
+  git_depth: 1  # shallow clone
 
 build:
   number: 0
