@@ -130,7 +130,7 @@ jobs:
           conda config --set anaconda_upload no
           conda build recipe/
       - name: Upload conda package to Anaconda Cloud
-        if: github.event_name == 'release' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'release'
         run: |
           echo "Uploading to Anaconda Cloud..."
           anaconda -t ${{ secrets.ANACONDA_API_TOKEN }} upload $(conda build recipe/ --output)
