@@ -74,8 +74,8 @@ jobs:
           CIBW_SKIP: "pp* cp27-* cp35-* cp36-* cp37-* cp38-* *-win32 *-manylinux_i686 *-musllinux_i686 *-macosx_10_6_intel *-macosx_10_9_intel *-macosx_10_10_intel *-macosx_10_11_intel *-macosx_10_12_intel *-macosx_10_13_intel *-macosx_10_14_intel *-macosx_10_15_intel"
           CIBW_ARCHS: "x86_64 aarch64"
           CIBW_ARCHS_MACOS: "x86_64 arm64"
-          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
-          CIBW_MANYLINUX_AARCH64_IMAGE: "manylinux2014_aarch64"
+          CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux2014"
+          CIBW_MANYLINUX_AARCH64_IMAGE: "quay.io/pypa/manylinux2014_aarch64"
       - name: Build source distribution
         run: python setup.py sdist
       - uses: actions/upload-artifact@v3
