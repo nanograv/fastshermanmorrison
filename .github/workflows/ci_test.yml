@@ -2,7 +2,7 @@ name: Python package CI/CD
 
 on:
   push:
-    branches: [ main, anaconda ]
+    branches: [ main, anaconda, arm ]
   pull_request:
     branches: [ main ]
   release:
