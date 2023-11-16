@@ -134,7 +134,6 @@ jobs:
         run: |
           echo "Uploading to Anaconda Cloud..."
           conda run -n base anaconda -t ${{ secrets.ANACONDA_API_TOKEN }} upload $(conda build recipe/ --output)
-          #anaconda -t ${{ secrets.ANACONDA_API_TOKEN }} upload $(conda build recipe/ --output)
         env:
           ANACONDA_API_TOKEN: ${{ secrets.ANACONDA_API_TOKEN }}
 
