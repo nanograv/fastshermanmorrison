@@ -22,6 +22,10 @@ From Pypi, you can do
 pip install fastshermanmorrison-pulsar
 ```
 
-Conda requires cpu architecture-specific compiles, so that is currently not
-supported. 
+Conda support is in testing stage. Apple silicon arm processors are not supported yet, but on other architectures you can do
 
+```
+conda install -c vhaasteren fastshermanmorrison-pulsar
+```
+
+Availability on conda-forge is upcoming in a later release
