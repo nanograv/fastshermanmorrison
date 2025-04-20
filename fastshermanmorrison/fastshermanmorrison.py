@@ -86,6 +86,61 @@ class ShermanMorrison(object):
                 yNx -= beta * np.dot(niblock, xblock) * np.dot(niblock, yblock)
         return yNx
 
+    def _sqrtsolve_D2(self, X):
+        """
+        Block‑wise solve   L_block^{-1} X_block
+        for each N_block = diag(d) + j * 1 1^T,
+        where L_block L_block^T = N_block,
+        using a true Cholesky rank‑1 update + forward triangular solve.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n, ℓ)
+            Right‑hand sides.
+
+        Returns
+        -------
+        Lix : ndarray, shape (n, ℓ)
+            L^{-1} X.
+        """
+        Lix = np.zeros_like(X)
+        for idx, jv in zip(self._idxs, self._jvec):
+            # Extract block
+            Xb = X[idx, :]            # (k, ℓ)
+            d  = self._nvec[idx]     # (k,)
+
+            k, l = Xb.shape
+            # 1) form initial diagonal sqrt(D)
+            L = np.diag(np.sqrt(d))   # (k, k)
+            # 2) prepare rank‑1 vector w = sqrt(jv) * ones(k)
+            w = np.sqrt(jv) * np.ones(k)
+
+            # 3) Cholesky rank‑1 update: L ← chol( L L^T + w w^T )
+            #    (aka “cholupdate” for +w w^T)
+            for i in range(k):
+                # r = hypot(L[i,i], w[i])
+                r = np.hypot(L[i,i], w[i])
+                c = r / L[i,i]
+                s = w[i] / L[i,i]
+                L[i, i] = r
+                if i+1 < k:
+                    # update subcolumn
+                    Li1 = L[i+1:, i]
+                    wi1 = w[i+1:]
+                    L[i+1:, i] = (Li1 + s * wi1) / c
+                    w[i+1:]     = c * wi1 - s * L[i+1:, i]
+
+            # 4) forward triangular solve Yb = L^{-1} Xb
+            Yb = Xb.copy()
+            for i in range(k):
+                Yb[i, :] /= L[i, i]
+                if i+1 < k:
+                    Yb[i+1:, :] -= np.outer(L[i+1:, i], Yb[i, :])
+
+            Lix[idx, :] = Yb
+
+        return Lix
+
     def _solve_2D2(self, X, Z):
         """Solves :math:`Z^T N^{-1}X`, where :math:`X`
         and :math:`Z` are 2-d arrays.
@@ -141,6 +196,24 @@ class ShermanMorrison(object):
 
         return (ret, self._get_logdet()) if logdet else ret
 
+    def sqrtsolve(self, other, left_array=None, logdet=False):
+        if other.ndim == 1:
+            raise NotImplementedError("ShermanMorrison does not implement _sqrtsolve_xD1")
+        elif other.ndim == 2:
+            if left_array is None:
+                ret = self._sqrtsolve_D2(other)
+            elif left_array is not None and left_array.ndim == 2:
+                raise NotImplementedError("ShermanMorrison does not implement _sqrtsolve_2D2")
+            elif left_array is not None and left_array.ndim == 1:
+                raise NotImplementedError("ShermanMorrison does not implement _sqrtsolve_1D2")
+            else:
+                raise TypeError
+        else:
+            raise TypeError
+
+        return (ret, self._get_logdet()) if logdet else ret
+
+
 
 class FastShermanMorrison(ShermanMorrison):
     """Custom container class for Sherman-morrison array inversion."""
@@ -187,6 +260,34 @@ class FastShermanMorrison(ShermanMorrison):
             )
 
         return yNx
+
+    def _sqrtsolve_D2(self, x):
+        """
+        Block‑wise solve   L_block^{-1} X_block
+        for each N_block = diag(d) + j * 1 1^T,
+        where L_block L_block^T = N_block,
+        using a true Cholesky rank‑1 update + forward triangular solve.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n, ℓ)
+            Right‑hand sides.
+
+        Returns
+        -------
+        Nx : ndarray, shape (n, ℓ)
+            L^{-1} X.
+        """
+        if self._as_slice:
+            Lix = cfsm.cython_block_sqrtsolve_rank1(
+                x, self._nvec, self._jvec, self._uinds
+            )
+        else:
+            Lix = cfsm.cython_idx_sqrtsolve_rank1(
+                x, self._nvec, self._jvec, self._uinds, self._slc_isort
+            )
+
+        return Lix
 
     def _solve_2D2(self, X, Z):
         """Solves :math:`Z^T N^{-1}X`, where :math:`X`
@@ -251,3 +352,22 @@ class FastShermanMorrison(ShermanMorrison):
             raise TypeError
 
         return (ret, self._get_logdet()) if logdet else ret
+
+    def sqrtsolve(self, other, left_array=None, logdet=False):
+        if other.ndim == 1:
+            raise NotImplementedError("ShermanMorrison does not implement _sqrtsolve_xD1")
+        elif other.ndim == 2:
+            if left_array is None:
+                ret = self._sqrtsolve_D2(other)
+            elif left_array is not None and left_array.ndim == 2:
+                raise NotImplementedError("ShermanMorrison does not implement _sqrtsolve_2D2")
+            elif left_array is not None and left_array.ndim == 1:
+                raise NotImplementedError("ShermanMorrison does not implement _sqrtsolve_1D2")
+            else:
+                raise TypeError
+        else:
+            raise TypeError
+
+        return (ret, self._get_logdet()) if logdet else ret
+
+
