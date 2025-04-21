@@ -55,6 +55,43 @@ class ShermanMorrisonRef(object):
                 yNx -= beta * np.dot(niblock, xblock) * np.dot(niblock, yblock)
         return yNx
 
+    def _sqrtsolve_D2(self, X):
+        """
+        Block‑wise solve   L_block^{-1} X_block
+        for each N_block = diag(d) + j * 1 1^T,
+        where L_block L_block^T = N_block,
+        using a true Cholesky rank‑1 update + forward triangular solve.
+        """
+        Lix = np.zeros_like(X)
+        for slc, jv in zip(self._slices, self._jvec):
+            Xb = X[slc, :]
+            d = self._nvec[slc]
+
+            k, _ = Xb.shape
+            L = np.diag(np.sqrt(d))
+            w = np.sqrt(jv) * np.ones(k)
+
+            for i in range(k):
+                r = np.hypot(L[i, i], w[i])
+                c = r / L[i, i]
+                s = w[i] / L[i, i]
+                L[i, i] = r
+                if i + 1 < k:
+                    Li1 = L[i + 1 :, i]
+                    wi1 = w[i + 1 :]
+                    L[i + 1 :, i] = (Li1 + s * wi1) / c
+                    w[i + 1 :] = c * wi1 - s * L[i + 1 :, i]
+
+            Yb = Xb.copy()
+            for i in range(k):
+                Yb[i, :] /= L[i, i]
+                if i + 1 < k:
+                    Yb[i + 1 :, :] -= np.outer(L[i + 1 :, i], Yb[i, :])
+
+            Lix[slc, :] = Yb
+
+        return Lix
+
     def _solve_2D2(self, X, Z):
         """Solves :math:`Z^T N^{-1}X`, where :math:`X`
         and :math:`Z` are 2-d arrays.
@@ -109,6 +146,36 @@ class ShermanMorrisonRef(object):
             raise TypeError
 
         return (ret, self._get_logdet()) if logdet else ret
+
+    def sqrtsolve(self, other, left_array=None):
+        if other.ndim == 1:
+            shape = other.shape
+            ret = self._sqrtsolve_D2(other.reshape(-1, 1)).reshape(*shape)
+
+            if left_array is not None and left_array.ndim == 1:
+                ret = np.sum(left_array * ret)
+            elif left_array is not None:
+                raise NotImplementedError(
+                    "ShermanMorrison does not implement _sqrtsolve_1D2"
+                )
+
+        elif other.ndim == 2:
+            if left_array is None:
+                ret = self._sqrtsolve_D2(other)
+            elif left_array is not None and left_array.ndim == 2:
+                raise NotImplementedError(
+                    "ShermanMorrison does not implement _sqrtsolve_2D2"
+                )
+            elif left_array is not None and left_array.ndim == 1:
+                raise NotImplementedError(
+                    "ShermanMorrison does not implement _sqrtsolve_1D2"
+                )
+            else:
+                raise TypeError
+        else:
+            raise TypeError
+
+        return ret
 
 
 class TestFastShermanMorrison(unittest.TestCase):
@@ -265,6 +332,49 @@ class TestFastShermanMorrison(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             fsms.solve(X)
 
+    def test_sqrtsolve_D12(self):
+        """Test the sqrt D2 solve routines"""
+
+        x, y, X, _ = self.get_test_data()
+        smr, sm, fsm = self.get_sm_objects()
+        sms, fsms, isort, iisort = self.get_shuffled_sm_objects()
+
+        # Regular ShermanMorrison, with slice objects
+        self.assertTrue(np.allclose(smr.sqrtsolve(x), sm.sqrtsolve(x)))
+        self.assertTrue(np.allclose(smr.sqrtsolve(x, y), sm.sqrtsolve(x, y)))
+        self.assertTrue(np.allclose(smr.sqrtsolve(X), sm.sqrtsolve(X)))
+
+        # Fast ShermanMorrison, with slice objects
+        self.assertTrue(np.allclose(smr.sqrtsolve(x), fsm.sqrtsolve(x)))
+        self.assertTrue(np.allclose(smr.sqrtsolve(x, y), fsm.sqrtsolve(x, y)))
+        self.assertTrue(np.allclose(smr.sqrtsolve(X), fsm.sqrtsolve(X)))
+
+        # Regular SermanMorrison, shuffled data
+        self.assertTrue(np.allclose(smr.sqrtsolve(x), sms.sqrtsolve(x[isort])[iisort]))
+        self.assertTrue(np.allclose(smr.sqrtsolve(X), sms.sqrtsolve(X[isort])[iisort]))
+
+        # Fast SermanMorrison, shuffled data
+        self.assertTrue(np.allclose(smr.sqrtsolve(x), fsms.sqrtsolve(x[isort])[iisort]))
+        self.assertTrue(np.allclose(smr.sqrtsolve(X), fsms.sqrtsolve(X[isort])[iisort]))
+
+        with self.assertRaises(NotImplementedError):
+            sm.sqrtsolve(X, x)
+
+        with self.assertRaises(NotImplementedError):
+            fsm.sqrtsolve(X, x)
+
+        with self.assertRaises(NotImplementedError):
+            sm.sqrtsolve(x, X)
+
+        with self.assertRaises(NotImplementedError):
+            fsm.sqrtsolve(x, X)
+
+        with self.assertRaises(NotImplementedError):
+            sm.sqrtsolve(X, X)
+
+        with self.assertRaises(NotImplementedError):
+            fsm.sqrtsolve(X, X)
+
     def test_errors(self):
         """Test the exceptions in te classes"""
 
@@ -284,6 +394,9 @@ class TestFastShermanMorrison(unittest.TestCase):
             sm.solve(mat3d)
 
         with self.assertRaises(TypeError):
+            sm.sqrtsolve(mat3d)
+
+        with self.assertRaises(TypeError):
             fsm.solve(x, mat3d)
 
         with self.assertRaises(TypeError):
@@ -291,6 +404,9 @@ class TestFastShermanMorrison(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             fsm.solve(mat3d)
+
+        with self.assertRaises(TypeError):
+            fsm.sqrtsolve(mat3d)
 
         with self.assertRaises(TypeError):
             sms.solve(x, mat3d)
@@ -302,6 +418,9 @@ class TestFastShermanMorrison(unittest.TestCase):
             sms.solve(mat3d)
 
         with self.assertRaises(TypeError):
+            sms.sqrtsolve(mat3d)
+
+        with self.assertRaises(TypeError):
             fsms.solve(x, mat3d)
 
         with self.assertRaises(TypeError):
@@ -309,6 +428,9 @@ class TestFastShermanMorrison(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             fsms.solve(mat3d)
+
+        with self.assertRaises(TypeError):
+            fsms.sqrtsolve(mat3d)
 
     def test_logdet(self):
         x, _, _, _ = self.get_test_data()

@@ -2,15 +2,10 @@ cimport numpy as cnp
 import numpy as np
 cnp.import_array()
 
-from libc.math cimport log, sqrt
+from libc.math cimport log, sqrt, hypot
 import cython
 from scipy.linalg.cython_blas cimport dgemm, dger, dgemv
 
-# TODO: update the functions to work with indices
-#       cython_block_shermor_0D              ->  cython_idx_block_shermor_0D
-#       cython_block_shermor_1D1             ->  cython_idx_block_shermor_1D1
-#       cython_block_shermor_1D              ->  cython_idx_block_shermor_1D
-#       cython_blas_block_shermor_2D_asymm   ->
 
 cdef public void dgemm_(char *transa, char *transb, int *m, int *n, int *k,
                           double *alpha, double *a, int *lda, double *b,
@@ -570,6 +565,218 @@ def cython_block_shermor_2D_asymm(
             Jldet += log(Jvec[cc]) - log(beta)
 
     return Jldet, zNz
+
+
+def python_block_sqrtsolve_rank1(X, Nvec, Jvec, Uinds):
+    """
+    Block‑wise solve L_block^{-1} X_block using true triangular rank‑1 update.
+
+    Parameters
+    ----------
+    X      : ndarray, shape (n, ℓ)
+    Nvec   : ndarray, shape (n,)
+    Jvec   : ndarray, shape (k,)
+    Uinds  : array-like of shape (k, 2)
+
+    Returns
+    -------
+    Lix : ndarray, shape (n, ℓ)
+    """
+    Lix = np.zeros_like(X)
+    for idx, jv in zip(Uinds, Jvec):
+        start, end = idx
+        Xb = X[start:end, :].copy()
+        d  = Nvec[start:end]
+        k, _ = Xb.shape
+
+        L = np.diag(np.sqrt(d))
+        w = np.sqrt(jv) * np.ones(k)
+
+        for i in range(k):
+            r = np.hypot(L[i,i], w[i])
+            c = r / L[i,i]
+            s = w[i] / L[i,i]
+            L[i,i] = r
+            if i+1 < k:
+                Li1 = L[i+1:, i]
+                wi1 = w[i+1:]
+                L[i+1:, i] = (Li1 + s * wi1) / c
+                w[i+1:] = c * wi1 - s * L[i+1:, i]
+
+        Yb = Xb.copy()
+        for i in range(k):
+            Yb[i, :] /= L[i, i]
+            if i+1 < k:
+                Yb[i+1:, :] -= np.outer(L[i+1:, i], Yb[i, :])
+
+        Lix[start:end, :] = Yb
+    return Lix
+
+
+def python_idx_sqrtsolve_rank1(X, Nvec, Jvec, Uinds, slc_isort):
+    """
+    Indexed version: applies rank‑1 block solve to unsorted rows.
+    """
+    Lix = np.zeros_like(X)
+    for bi, jv in enumerate(Jvec):
+        idx0, idx1 = Uinds[bi]
+        k = idx1 - idx0
+        Xb = np.zeros((k, X.shape[1]))
+        d  = np.zeros(k)
+        for i in range(k):
+            pos = slc_isort[idx0 + i]
+            Xb[i, :] = X[pos, :]
+            d[i]      = Nvec[pos]
+
+        L = np.diag(np.sqrt(d))
+        w = np.sqrt(jv) * np.ones(k)
+        for i in range(k):
+            r = np.hypot(L[i,i], w[i])
+            c = r / L[i,i]
+            s = w[i] / L[i,i]
+            L[i,i] = r
+            if i+1 < k:
+                Li1 = L[i+1:, i]
+                wi1 = w[i+1:]
+                L[i+1:, i] = (Li1 + s * wi1) / c
+                w[i+1:] = c * wi1 - s * L[i+1:, i]
+
+        Yb = Xb.copy()
+        for i in range(k):
+            Yb[i, :] /= L[i, i]
+            if i+1 < k:
+                Yb[i+1:, :] -= np.outer(L[i+1:, i], Yb[i, :])
+        for i in range(k):
+            pos = slc_isort[idx0 + i]
+            Lix[pos, :] = Yb[i, :]
+
+    return Lix
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cython_block_sqrtsolve_rank1(
+        cnp.ndarray[cnp.double_t, ndim=2] X,
+        cnp.ndarray[cnp.double_t, ndim=1] Nvec,
+        cnp.ndarray[cnp.double_t, ndim=1] Jvec,
+        cnp.ndarray[cnp.int64_t, ndim=2] Uinds
+    ):
+    """
+    Block‑wise forward solve L_block^{-1} X_block via true rank‑1 update.
+    """
+    cdef int n = X.shape[0]
+    cdef int l = X.shape[1]
+    cdef int k = Jvec.shape[0]
+    cdef int bi, i, j, idx0, idx1, blk_len
+    cdef double ri, ci, si
+
+    cdef cnp.ndarray[cnp.double_t, ndim=2] Lix = np.zeros_like(X)
+    cdef double[:, :] Xb
+    cdef double[:, :] Yb
+    cdef double[:, :] L
+    cdef double[:] w
+
+    for bi in range(k):
+        idx0 = Uinds[bi, 0]
+        idx1 = Uinds[bi, 1]
+        blk_len = idx1 - idx0
+
+        Xb = X[idx0:idx1, :]
+        Yb = np.empty((blk_len, l), dtype=np.double)
+        L = np.zeros((blk_len, blk_len), dtype=np.double)
+        w = np.empty(blk_len, dtype=np.double)
+
+        for i in range(blk_len):
+            L[i, i] = sqrt(Nvec[idx0 + i])
+            w[i] = sqrt(Jvec[bi])
+
+        for i in range(blk_len):
+            ri = hypot(L[i, i], w[i])
+            ci = ri / L[i, i]
+            si = w[i] / L[i, i]
+            L[i, i] = ri
+            for j in range(i+1, blk_len):
+                L[j, i] = (L[j, i] + si * w[j]) / ci
+                w[j] = ci * w[j] - si * L[j, i]
+
+        for j in range(l):
+            for i in range(blk_len):
+                Yb[i, j] = Xb[i, j]
+            for i in range(blk_len):
+                Yb[i, j] /= L[i, i]
+                for j2 in range(i+1, blk_len):
+                    Yb[j2, j] -= L[j2, i] * Yb[i, j]
+
+        Lix[idx0:idx1, :] = Yb
+
+    return Lix
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cython_idx_sqrtsolve_rank1(
+        cnp.ndarray[cnp.double_t, ndim=2] X,
+        cnp.ndarray[cnp.double_t, ndim=1] Nvec,
+        cnp.ndarray[cnp.double_t, ndim=1] Jvec,
+        cnp.ndarray[cnp.int64_t, ndim=2] Uinds,
+        cnp.ndarray[cnp.int64_t, ndim=1] slc_isort
+    ):
+    """
+    Indexed forward solve L_block^{-1} X_block via true rank‑1 update.
+    """
+    cdef int n = X.shape[0]
+    cdef int l = X.shape[1]
+    cdef int k = Jvec.shape[0]
+    cdef int bi, i, j, idx0, idx1, blk_len, pos
+    cdef double ri, ci, si
+
+    cdef cnp.ndarray[cnp.double_t, ndim=2] Lix = np.zeros_like(X)
+    cdef double[:, :] Xb
+    cdef double[:, :] Yb
+    cdef double[:, :] L
+    cdef double[:] w
+
+    for bi in range(k):
+        idx0 = Uinds[bi, 0]
+        idx1 = Uinds[bi, 1]
+        blk_len = idx1 - idx0
+
+        Xb = np.empty((blk_len, l), dtype=np.double)
+        Yb = np.empty((blk_len, l), dtype=np.double)
+        L = np.zeros((blk_len, blk_len), dtype=np.double)
+        w = np.empty(blk_len, dtype=np.double)
+
+        for i in range(blk_len):
+            pos = slc_isort[idx0 + i]
+            for j in range(l):
+                Xb[i, j] = X[pos, j]
+            L[i, i] = sqrt(Nvec[pos])
+            w[i] = sqrt(Jvec[bi])
+
+        for i in range(blk_len):
+            ri = hypot(L[i, i], w[i])
+            ci = ri / L[i, i]
+            si = w[i] / L[i, i]
+            L[i, i] = ri
+            for j in range(i+1, blk_len):
+                L[j, i] = (L[j, i] + si * w[j]) / ci
+                w[j] = ci * w[j] - si * L[j, i]
+
+        for j in range(l):
+            for i in range(blk_len):
+                Yb[i, j] = Xb[i, j]
+            for i in range(blk_len):
+                Yb[i, j] /= L[i, i]
+                for j2 in range(i+1, blk_len):
+                    Yb[j2, j] -= L[j2, i] * Yb[i, j]
+
+        for i in range(blk_len):
+            pos = slc_isort[idx0 + i]
+            for j in range(l):
+                Lix[pos, j] = Yb[i, j]
+
+    return Lix
+
 
 def python_draw_ecor(r, Nvec, Jvec, Uinds):
     """
