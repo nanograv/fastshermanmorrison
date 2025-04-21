@@ -92,14 +92,14 @@ class ShermanMorrison(object):
 
         Nx = np.zeros_like(x)
         for idx, jv in zip(self._idxs, self._jvec):
-            Xblock = x[idx,:]
+            Xblock = x[idx, :]
             Nblock = np.diag(self._nvec[idx])
             Nblock += jv * np.ones_like(Nblock)
             Lblock = sl.cholesky(Nblock, lower=True)
-            Nx[idx,:] = sl.solve_triangular(Lblock, Xblock, trans=0, lower=True)
+            Nx[idx, :] = sl.solve_triangular(Lblock, Xblock, trans=0, lower=True)
 
         return Nx
-    
+
     def _solve_2D2(self, X, Z):
         """Solves :math:`Z^T N^{-1}X`, where :math:`X`
         and :math:`Z` are 2-d arrays.
@@ -163,21 +163,26 @@ class ShermanMorrison(object):
             if left_array is not None and left_array.ndim == 1:
                 ret = np.sum(left_array * ret)
             elif left_array is not None:
-                raise NotImplementedError("ShermanMorrison does not implement _sqrtsolve_1D2")
+                raise NotImplementedError(
+                    "ShermanMorrison does not implement _sqrtsolve_1D2"
+                )
         elif other.ndim == 2:
             if left_array is None:
                 ret = self._sqrtsolve_D2(other)
             elif left_array is not None and left_array.ndim == 2:
-                raise NotImplementedError("ShermanMorrison does not implement _sqrtsolve_2D2")
+                raise NotImplementedError(
+                    "ShermanMorrison does not implement _sqrtsolve_2D2"
+                )
             elif left_array is not None and left_array.ndim == 1:
-                raise NotImplementedError("ShermanMorrison does not implement _sqrtsolve_1D2")
+                raise NotImplementedError(
+                    "ShermanMorrison does not implement _sqrtsolve_1D2"
+                )
             else:
                 raise TypeError
         else:
             raise TypeError
 
         return ret
-
 
 
 class FastShermanMorrison(ShermanMorrison):
@@ -326,19 +331,23 @@ class FastShermanMorrison(ShermanMorrison):
             if left_array is not None and left_array.ndim == 1:
                 ret = np.sum(left_array * ret)
             elif left_array is not None:
-                raise NotImplementedError("ShermanMorrison does not implement _sqrtsolve_1D2")
+                raise NotImplementedError(
+                    "ShermanMorrison does not implement _sqrtsolve_1D2"
+                )
         elif other.ndim == 2:
             if left_array is None:
                 ret = self._sqrtsolve_D2(other)
             elif left_array is not None and left_array.ndim == 2:
-                raise NotImplementedError("ShermanMorrison does not implement _sqrtsolve_2D2")
+                raise NotImplementedError(
+                    "ShermanMorrison does not implement _sqrtsolve_2D2"
+                )
             elif left_array is not None and left_array.ndim == 1:
-                raise NotImplementedError("ShermanMorrison does not implement _sqrtsolve_1D2")
+                raise NotImplementedError(
+                    "ShermanMorrison does not implement _sqrtsolve_1D2"
+                )
             else:
                 raise TypeError
         else:
             raise TypeError
 
         return ret
-
-
