@@ -582,7 +582,7 @@ def python_block_sqrtsolve_rank1(X, Nvec, Jvec, Uinds):
     -------
     Lix : ndarray, shape (n, ℓ)
     """
-    Lix = np.zeros_like(X)
+    Lix = X / np.sqrt(Nvec)[:,None]
     for idx, jv in zip(Uinds, Jvec):
         start, end = idx
         Xb = X[start:end, :].copy()
@@ -617,7 +617,7 @@ def python_idx_sqrtsolve_rank1(X, Nvec, Jvec, Uinds, slc_isort):
     """
     Indexed version: applies rank‑1 block solve to unsorted rows.
     """
-    Lix = np.zeros_like(X)
+    Lix = X / np.sqrt(Nvec)[:,None]
     for bi, jv in enumerate(Jvec):
         idx0, idx1 = Uinds[bi]
         k = idx1 - idx0
@@ -670,11 +670,15 @@ def cython_block_sqrtsolve_rank1(
     cdef int bi, i, j, idx0, idx1, blk_len
     cdef double ri, ci, si
 
-    cdef cnp.ndarray[cnp.double_t, ndim=2] Lix = np.zeros_like(X)
+    cdef cnp.ndarray[cnp.double_t, ndim=2] Lix = X.copy()
     cdef double[:, :] Xb
     cdef double[:, :] Yb
     cdef double[:, :] L
     cdef double[:] w
+
+    for i in range(n):
+        for j in range(l):
+            Lix[i, j] /= sqrt(Nvec[i])
 
     for bi in range(k):
         idx0 = Uinds[bi, 0]
@@ -730,11 +734,15 @@ def cython_idx_sqrtsolve_rank1(
     cdef int bi, i, j, idx0, idx1, blk_len, pos
     cdef double ri, ci, si
 
-    cdef cnp.ndarray[cnp.double_t, ndim=2] Lix = np.zeros_like(X)
+    cdef cnp.ndarray[cnp.double_t, ndim=2] Lix = X.copy()
     cdef double[:, :] Xb
     cdef double[:, :] Yb
     cdef double[:, :] L
     cdef double[:] w
+
+    for i in range(n):
+        for j in range(l):
+            Lix[i, j] /= sqrt(Nvec[i])
 
     for bi in range(k):
         idx0 = Uinds[bi, 0]

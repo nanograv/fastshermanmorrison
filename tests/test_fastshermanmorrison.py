@@ -62,7 +62,7 @@ class ShermanMorrisonRef(object):
         where L_block L_block^T = N_block,
         using a true Cholesky rank‑1 update + forward triangular solve.
         """
-        Lix = np.zeros_like(X)
+        Lix = X / np.sqrt(self._nvec)[:, None]
         for slc, jv in zip(self._slices, self._jvec):
             Xb = X[slc, :]
             d = self._nvec[slc]
@@ -335,7 +335,7 @@ class TestFastShermanMorrison(unittest.TestCase):
     def test_sqrtsolve_D12(self):
         """Test the sqrt D2 solve routines"""
 
-        x, y, X, _ = self.get_test_data()
+        x, y, X, Z = self.get_test_data()
         smr, sm, fsm = self.get_sm_objects()
         sms, fsms, isort, iisort = self.get_shuffled_sm_objects()
 
@@ -374,6 +374,19 @@ class TestFastShermanMorrison(unittest.TestCase):
 
         with self.assertRaises(NotImplementedError):
             fsm.sqrtsolve(X, X)
+
+        # Also verify against TNT as a cross-check
+        sqrtNZ = sm.sqrtsolve(Z)
+        sqrtNZr = smr.sqrtsolve(Z)
+        sqrtNZf = fsm.sqrtsolve(Z)
+        sqrtNZs = sms.sqrtsolve(Z[isort])
+        sqrtNZfs = fsms.sqrtsolve(Z[isort])
+        ZNZ = smr.solve(Z, Z)
+
+        self.assertTrue(np.allclose(ZNZ, np.dot(sqrtNZ.T, sqrtNZ)))
+        self.assertTrue(np.allclose(ZNZ, np.dot(sqrtNZf.T, sqrtNZf)))
+        self.assertTrue(np.allclose(ZNZ, np.dot(sqrtNZs.T, sqrtNZs)))
+        self.assertTrue(np.allclose(ZNZ, np.dot(sqrtNZfs.T, sqrtNZfs)))
 
     def test_errors(self):
         """Test the exceptions in te classes"""
