@@ -29,3 +29,20 @@ conda install -c vhaasteren fastshermanmorrison-pulsar
 ```
 
 Availability on conda-forge is upcoming in a later release
+
+## citation
+Did you use `fastshermanmorrison`?
+Remember to cite it as:
+
+>van Haasteren, Rutger (2023). fastshermanmorrison v0.5.2. https://github.com/nanograv/fastshermanmorrison
+
+```latex
+@misc{fastshermanmorrison,
+  author       = {Rutger van Haasteren},
+  title        = {fastshermanmorrison},
+  year         = {2023},
+  url          = {https://github.com/nanograv/fastshermanmorrison},
+  note         = {v0.5.2}
+}
+```
+
