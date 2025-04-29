@@ -42,7 +42,7 @@ Remember to cite it as:
   title        = {fastshermanmorrison},
   year         = {2023},
   url          = {https://github.com/nanograv/fastshermanmorrison},
-  note         = {v0.5.2}
+  note         = {v0.5.3}
 }
 ```
 
