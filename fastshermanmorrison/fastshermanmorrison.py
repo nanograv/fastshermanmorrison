@@ -47,6 +47,7 @@ class ShermanMorrison(object):
         self._slices = slices
         self._idxs = [indices_from_slice(slc) for slc in slices]
         self._nvec = nvec
+        self._has_sqrtsolve = True
 
     def __add__(self, other):
         nvec = self._nvec + other

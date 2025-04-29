@@ -15,6 +15,7 @@ class ShermanMorrisonRef(object):
         self._jvec = jvec
         self._slices = slices
         self._nvec = nvec
+        self._has_sqrtsolve = True
 
     def __add__(self, other):
         nvec = self._nvec + other
