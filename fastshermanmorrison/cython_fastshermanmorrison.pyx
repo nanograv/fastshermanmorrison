@@ -4,7 +4,7 @@ cnp.import_array()
 
 from libc.math cimport log, sqrt, hypot
 import cython
-from scipy.linalg.cython_blas cimport dgemm, dger, dgemv
+from scipy.linalg.cython_blas cimport dgemm, dger, dgemv, dpotrf, dpotri
 
 
 cdef public void dgemm_(char *transa, char *transb, int *m, int *n, int *k,
@@ -1312,3 +1312,161 @@ def cython_blas_idx_block_shermor_2D_asymm(Z1, Z2, Nvec, Jvec, Uinds, slc_isort)
     Jldet = c_blas_block_shermor_2D_asymm(Z1n, Z2n, Nvecn, Jvec, np.array(Uinds, order="C"), ZNZ)
 
     return Jldet, ZNZ
+
+# 0D solve: (D + U J U^T)^{-1} r
+cpdef cnp.ndarray[cnp.double_t, ndim=1] cython_block_shermor_0D_k(
+        cnp.ndarray[cnp.double_t, ndim=1] r,
+        cnp.ndarray[cnp.double_t, ndim=1] Nvec,
+        cnp.ndarray[cnp.double_t, ndim=1] Jvec,
+        cnp.ndarray[cnp.int_t,   ndim=2] Uinds):
+    cdef int n = r.shape[0]
+    cdef int k = Jvec.shape[0]
+    cdef cnp.ndarray[cnp.double_t, ndim=1] out = np.empty(n, dtype=np.double)
+    cdef cnp.ndarray[cnp.double_t, ndim=1] ni  = 1.0 / Nvec
+    cdef cnp.ndarray[cnp.double_t, ndim=1] kvec = np.zeros(k, dtype=np.double)
+    cdef cnp.ndarray[cnp.double_t, ndim=2] M    = np.zeros((k,k), dtype=np.double)
+    cdef int bi, bj, i, start, stop
+    # initial diagonal solve
+    for i in range(n): out[i] = r[i] * ni[i]
+    # assemble M = J^{-1} + U^T (D^{-1} U)
+    for bi in range(k):
+        M[bi,bi] = 1.0 / Jvec[bi]
+        start = Uinds[bi,0]; stop = Uinds[bi,1]
+        for i in range(start, stop):
+            M[bi,bi] += ni[i]
+            # off-diagonals: any other block sharing this row
+            for bj in range(bi+1, k):
+                # test membership of bj in same index
+                if i >= Uinds[bj,0] and i < Uinds[bj,1]:
+                    M[bi,bj] += ni[i]
+                    M[bj,bi] += ni[i]
+    # Cholesky + invert M in-place
+    cdef int info
+    cdef char uplo = 'L'
+    cdef int KK = k
+    dpotrf(&uplo, &KK, &M[0,0], &KK, &info)
+    if info: raise RuntimeError("Cholesky failed in cython_block_shermor_0D_k")
+    dpotri(&uplo, &KK, &M[0,0], &KK, &info)
+    if info: raise RuntimeError("Inversion failed in cython_block_shermor_0D_k")
+    # build kvec = U^T (D^{-1} r)
+    for bi in range(k):
+        start = Uinds[bi,0]; stop = Uinds[bi,1]
+        kvec[bi] = 0.0
+        for i in range(start, stop): kvec[bi] += r[i] * ni[i]
+    # tmp = M @ kvec
+    cdef cnp.ndarray[cnp.double_t, ndim=1] tmp = np.zeros(k, dtype=np.double)
+    for bi in range(k):
+        for bj in range(k): tmp[bi] += M[bi,bj] * kvec[bj]
+    # apply correction
+    for bi in range(k):
+        start = Uinds[bi,0]; stop = Uinds[bi,1]
+        for i in range(start, stop): out[i] -= ni[i] * tmp[bi]
+    return out
+
+# 1D1 solve: y^T (D+UJU^T)^{-1} x + logdet
+cpdef tuple cython_block_shermor_1D1_k(
+        cnp.ndarray[cnp.double_t, ndim=1] x,
+        cnp.ndarray[cnp.double_t, ndim=1] y,
+        cnp.ndarray[cnp.double_t, ndim=1] Nvec,
+        cnp.ndarray[cnp.double_t, ndim=1] Jvec,
+        cnp.ndarray[cnp.int_t,   ndim=2] Uinds):
+    cdef int n = x.shape[0]
+    cdef int k = Jvec.shape[0]
+    cdef double yNx = 0.0
+    cdef double logdet = 0.0
+    cdef cnp.ndarray[cnp.double_t, ndim=1] ni = 1.0 / Nvec
+    cdef cnp.ndarray[cnp.double_t, ndim=1] kx = np.zeros(k, dtype=np.double)
+    cdef cnp.ndarray[cnp.double_t, ndim=1] ky = np.zeros(k, dtype=np.double)
+    cdef cnp.ndarray[cnp.double_t, ndim=2] M  = np.zeros((k,k), dtype=np.double)
+    cdef int bi, bj, i, start, stop
+    # diagonal part
+    for i in range(n):
+        logdet += log(Nvec[i])
+        yNx += y[i] * x[i] * ni[i]
+    # assemble M and block corrections
+    for bi in range(k):
+        start = Uinds[bi,0]; stop = Uinds[bi,1]
+        cdef double sum_ni = 0.0
+        cdef double sum_kx = 0.0
+        cdef double sum_ky = 0.0
+        for i in range(start, stop):
+            sum_ni += ni[i]
+            sum_kx += x[i] * ni[i]
+            sum_ky += y[i] * ni[i]
+        invJ = 1.0 / Jvec[bi]
+        beta = 1.0 / (sum_ni + invJ)
+        logdet += log(Jvec[bi]) - log(beta)
+        yNx -= beta * sum_kx * sum_ky
+    return logdet, yNx
+
+# 2D2 asymmetric: Z2^T (D+UJU^T)^{-1} Z1
+cpdef tuple cython_block_shermor_2D2_rankk(
+        cnp.ndarray[cnp.double_t, ndim=2] Z1,
+        cnp.ndarray[cnp.double_t, ndim=2] Z2,
+        cnp.ndarray[cnp.double_t, ndim=1] Nvec,
+        cnp.ndarray[cnp.double_t, ndim=1] Jvec,
+        cnp.ndarray[cnp.int_t,   ndim=2] Uinds):
+    cdef int n = Z1.shape[0]
+    cdef int c1 = Z1.shape[1]
+    cdef int c2 = Z2.shape[1]
+    cdef int k  = Jvec.shape[0]
+    cdef double logdet = 0.0
+    # allocate result
+    cdef cnp.ndarray[cnp.double_t, ndim=2] ZNZ = np.dot((Z2 * (1.0/Nvec)[:,None]).T, Z1)
+    cdef double[:] ni = (1.0 / Nvec)
+    cdef double[:] zn1 = np.empty(c1, dtype=np.double)
+    cdef double[:] zn2 = np.empty(c2, dtype=np.double)
+    cdef int bi, i, start, stop
+    for i in range(n): logdet += log(Nvec[i])
+    for bi in range(k):
+        start = Uinds[bi,0]; stop = Uinds[bi,1]
+        cdef double sum_ni = 0.0
+        # compute za = niblock * Z1block -> zn1
+        for j in range(c1): zn1[j] = 0.0
+        for j in range(c2): zn2[j] = 0.0
+        for i in range(start, stop):
+            w = ni[i]
+            sum_ni += w
+            for j in range(c1): zn1[j] += w * Z1[i,j]
+            for j in range(c2): zn2[j] += w * Z2[i,j]
+        if Jvec[bi] <= 0.0: continue
+        beta = 1.0 / (sum_ni + 1.0/Jvec[bi])
+        logdet += log(Jvec[bi]) - log(beta)
+        # ZNZ -= beta * zn2^T zn1  (outer)
+        for i in range(c2):
+            for j in range(c1):
+                ZNZ[i,j] -= beta * zn2[i] * zn1[j]
+    return logdet, ZNZ
+
+# Sqrtsolve via small-block Cholesky
+cpdef cnp.ndarray[cnp.double_t, ndim=2] cython_block_sqrtsolve_rankk(
+        cnp.ndarray[cnp.double_t, ndim=2] X,
+        cnp.ndarray[cnp.double_t, ndim=1] Nvec,
+        cnp.ndarray[cnp.double_t, ndim=1] Jvec,
+        cnp.ndarray[cnp.int_t,   ndim=2] Uinds):
+    cdef int n = X.shape[0]
+    cdef int m = X.shape[1]
+    cdef int k = Jvec.shape[0]
+    cdef cnp.ndarray[cnp.double_t, ndim=2] Lix = np.empty((n,m), dtype=np.double)
+    cdef int bi, i, j, start, stop, blk
+    # scale by sqrt N
+    for i in range(n):
+        for j in range(m): Lix[i,j] = X[i,j] / sqrt(Nvec[i])
+    for bi in range(k):
+        start = Uinds[bi,0]; stop = Uinds[bi,1]
+        blk = stop - start
+        # build small A = diag(Nvec[idxs]) + Jvec[bi] * ones
+        cdef cnp.ndarray[cnp.double_t, ndim=2] A = np.diag(Nvec[start:stop])
+        for i in range(blk):
+            for j in range(blk): A[i,j] += Jvec[bi]
+        # cholesky
+        cdef int info
+        cdef char u = 'L'; cdef int B = blk
+        dpotrf(&u, &B, &A[0,0], &B, &info)
+        if info: raise RuntimeError("Cholesky in sqrtsolve failed")
+        # forward solve
+        for col in range(m):
+            cdef double *colX = &Lix[start, col]
+            # solve L y = Xblock
+            dgemv('N', &B, &B, & (1.0), &A[0,0], &B, colX, &1, &(0.0), colX, &1)
+    return Lix
