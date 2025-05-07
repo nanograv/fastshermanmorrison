@@ -352,3 +352,113 @@ class FastShermanMorrison(ShermanMorrison):
             raise TypeError
 
         return ret
+
+
+class FastShermanMorrisonRK:
+    def __init__(self, jvec, slices, nvec):
+        self._nvec = np.asarray(nvec)
+        self._orig_idxs = [indices_from_slice(s) for s in slices]
+        self._jvec      = np.asarray(jvec)
+        # build connected components via union-find
+        B = len(self._orig_idxs)
+        parent = list(range(B))
+        def find(i):
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+        def union(i,j):
+            ri, rj = find(i), find(j)
+            if ri != rj:
+                parent[rj] = ri
+        from collections import defaultdict
+        pos2blocks = defaultdict(list)
+        for b, idx in enumerate(self._orig_idxs):
+            for p in idx:
+                pos2blocks[p].append(b)
+        for blocks in pos2blocks.values():
+            first = blocks[0]
+            for b in blocks[1:]: union(first,b)
+        comps = {}
+        for b in range(B): comps.setdefault(find(b), []).append(b)
+        # assemble per-component data
+        self._components = []
+        for comp_blocks in comps.values():
+            all_idx = sorted({i for b in comp_blocks for i in self._orig_idxs[b]})
+            pos_map = {v:i for i,v in enumerate(all_idx)}
+            k = len(comp_blocks)
+            Uinds = np.zeros((k,2), dtype=np.intc)
+            comp_j = np.zeros(k, dtype=np.double)
+            for col, b in enumerate(sorted(comp_blocks)):
+                comp_j[col] = self._jvec[b]
+                idxs = self._orig_idxs[b]
+                Uinds[col,0] = pos_map[idxs[0]]
+                Uinds[col,1] = pos_map[idxs[-1]] + 1
+            self._components.append({'idxs': np.array(all_idx, dtype=int),
+                                     'j': comp_j,
+                                     'Uinds': Uinds})
+
+    def _solve_D1(self, x):
+        out = np.zeros_like(x)
+        for comp in self._components:
+            idx = comp['idxs']
+            out[idx] = np.asarray(cfsm.block_rankk_solve_0D(
+                x[idx], self._nvec[idx], comp['j'], comp['Uinds']
+            ))
+        return out
+
+    def _solve_1D1(self, x, y):
+        tot_logdet = 0.0
+        tot_yNx    = 0.0
+        for comp in self._components:
+            idx = comp['idxs']
+            logdet, yNx = cfsm.block_rankk_solve_1D1(
+                x[idx], y[idx], self._nvec[idx], comp['j'], comp['Uinds']
+            )
+            tot_logdet += logdet
+            tot_yNx    += yNx
+        return tot_logdet, tot_yNx
+
+    def _solve_2D2(self, X, Z):
+        total_logdet = 0.0
+        ZNZ_acc = None
+        for comp in self._components:
+            idx = comp['idxs']
+            subZ1 = X[idx,:]
+            subZ2 = Z[idx,:]
+            logdet, ZNZ = cfsm.block_rankk_solve_2D2(
+                subZ1, subZ2, self._nvec[idx], comp['j'], comp['Uinds']
+            )
+            total_logdet += logdet
+            if ZNZ_acc is None:
+                ZNZ_acc = ZNZ.copy()
+            else:
+                ZNZ_acc += ZNZ
+        return total_logdet, ZNZ_acc
+
+    def solve(self, other, left_array=None, logdet=False):
+        if other.ndim == 1:
+            if left_array is None:
+                ret = self._solve_D1(other)
+            elif left_array.ndim == 1:
+                logdet_val, yNx = self._solve_1D1(other, left_array)
+                ret = yNx
+            else:
+                ret = left_array.T.dot(self._solve_D1(other))
+        elif other.ndim == 2:
+            if left_array is None:
+                raise NotImplementedError
+            else:
+                logdet_val, ret = self._solve_2D2(other, left_array)
+        else:
+            raise TypeError
+        return (ret, logdet_val) if logdet else ret
+
+    def sqrtsolve(self, X):
+        out = np.zeros_like(X)
+        for comp in self._components:
+            idx = comp['idxs']
+            out[idx,:] = np.asarray(cfsm.block_rankk_sqrtsolve(
+                X[idx,:], self._nvec[idx], comp['j'], comp['Uinds']
+            ))
+        return out
