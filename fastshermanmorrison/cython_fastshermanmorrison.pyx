@@ -43,7 +43,7 @@ cdef extern from "fastshermanmorrison.c":
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_block_shermor_0D( \
+cpdef cnp.ndarray[cnp.double_t, ndim=1] cython_block_shermor_0D( \
         cnp.ndarray[cnp.double_t,ndim=1] r, \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
         cnp.ndarray[cnp.double_t,ndim=1] Jvec, \
@@ -86,7 +86,7 @@ def cython_block_shermor_0D( \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_idx_block_shermor_0D( \
+cpdef cnp.ndarray[cnp.double_t, ndim=1] cython_idx_block_shermor_0D( \
         cnp.ndarray[cnp.double_t,ndim=1] r, \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
         cnp.ndarray[cnp.double_t,ndim=1] Jvec, \
@@ -132,7 +132,7 @@ def cython_idx_block_shermor_0D( \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_block_shermor_0D_ld( \
+cpdef tuple cython_block_shermor_0D_ld( \
         cnp.ndarray[cnp.double_t,ndim=1] r, \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
         cnp.ndarray[cnp.double_t,ndim=1] Jvec, \
@@ -206,7 +206,7 @@ def python_block_shermor_1D(r, Nvec, Jvec, Uinds):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_block_shermor_1D( \
+cpdef tuple cython_block_shermor_1D( \
         cnp.ndarray[cnp.double_t,ndim=1] r, \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
         cnp.ndarray[cnp.double_t,ndim=1] Jvec, \
@@ -251,7 +251,7 @@ def cython_block_shermor_1D( \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_idx_block_shermor_1D( \
+cpdef tuple cython_idx_block_shermor_1D( \
         cnp.ndarray[cnp.double_t,ndim=1] r, \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
         cnp.ndarray[cnp.double_t,ndim=1] Jvec, \
@@ -298,7 +298,7 @@ def cython_idx_block_shermor_1D( \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_block_shermor_1D1( \
+cpdef tuple cython_block_shermor_1D1( \
         cnp.ndarray[cnp.double_t,ndim=1] x, \
         cnp.ndarray[cnp.double_t,ndim=1] y, \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
@@ -346,7 +346,7 @@ def cython_block_shermor_1D1( \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_idx_block_shermor_1D1( \
+cpdef tuple cython_idx_block_shermor_1D1( \
         cnp.ndarray[cnp.double_t,ndim=1] x, \
         cnp.ndarray[cnp.double_t,ndim=1] y, \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
@@ -428,7 +428,7 @@ def python_block_shermor_2D(Z, Nvec, Jvec, Uinds):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_block_shermor_2D( \
+cpdef tuple cython_block_shermor_2D( \
         cnp.ndarray[cnp.double_t,ndim=2] Z, \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
         cnp.ndarray[cnp.double_t,ndim=1] Jvec, \
@@ -512,7 +512,7 @@ def python_block_shermor_2D_asymm(Z1, Z2, Nvec, Jvec, Uinds):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_block_shermor_2D_asymm(
+cpdef tuple cython_block_shermor_2D_asymm(
         cnp.ndarray[cnp.double_t,ndim=2] Z1,
         cnp.ndarray[cnp.double_t,ndim=2] Z2,
         cnp.ndarray[cnp.double_t,ndim=1] Nvec,
@@ -655,7 +655,7 @@ def python_idx_sqrtsolve_rank1(X, Nvec, Jvec, Uinds, slc_isort):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_block_sqrtsolve_rank1(
+cpdef cnp.ndarray[cnp.double_t, ndim=2] cython_block_sqrtsolve_rank1(
         cnp.ndarray[cnp.double_t, ndim=2] X,
         cnp.ndarray[cnp.double_t, ndim=1] Nvec,
         cnp.ndarray[cnp.double_t, ndim=1] Jvec,
@@ -718,7 +718,7 @@ def cython_block_sqrtsolve_rank1(
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_idx_sqrtsolve_rank1(
+cpdef cnp.ndarray[cnp.double_t, ndim=2] cython_idx_sqrtsolve_rank1(
         cnp.ndarray[cnp.double_t, ndim=2] X,
         cnp.ndarray[cnp.double_t, ndim=1] Nvec,
         cnp.ndarray[cnp.double_t, ndim=1] Jvec,
@@ -817,7 +817,7 @@ def python_draw_ecor(r, Nvec, Jvec, Uinds):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_draw_ecor( \
+cpdef cnp.ndarray[cnp.double_t, ndim=1] cython_draw_ecor( \
         cnp.ndarray[cnp.double_t,ndim=1] r, \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
         cnp.ndarray[cnp.double_t,ndim=1] Jvec, \
@@ -862,7 +862,7 @@ def cython_draw_ecor( \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_shermor_draw_ecor( \
+cpdef tuple cython_shermor_draw_ecor( \
         cnp.ndarray[cnp.double_t,ndim=1] r, \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
         cnp.ndarray[cnp.double_t,ndim=1] Jvec, \
@@ -917,7 +917,7 @@ def cython_shermor_draw_ecor( \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_update_ea_residuals( \
+cpdef tuple cython_update_ea_residuals( \
         cnp.ndarray[cnp.double_t,ndim=1] gibbsresiduals, \
         cnp.ndarray[cnp.double_t,ndim=1] gibbssubresiduals, \
         cnp.ndarray[cnp.double_t,ndim=1] eat, \
@@ -946,8 +946,10 @@ def cython_update_ea_residuals( \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_Uj(cnp.ndarray[cnp.double_t,ndim=1] j, \
-        cnp.ndarray[cnp.int64_t,ndim=2] Uinds, nobs):
+cpdef cnp.ndarray[cnp.double_t, ndim=1] cython_Uj( \
+        cnp.ndarray[cnp.double_t, ndim=1] j, \
+        cnp.ndarray[cnp.int64_t, ndim=2] Uinds, \
+        int nobs):
     """
     Given epoch-averaged residuals (j), get the residuals.
     Used in 'updateDetSources'
@@ -969,8 +971,9 @@ def cython_Uj(cnp.ndarray[cnp.double_t,ndim=1] j, \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_UTx(cnp.ndarray[cnp.double_t,ndim=1] x, \
-        cnp.ndarray[cnp.int64_t,ndim=2] Uinds):
+cpdef cnp.ndarray[cnp.double_t, ndim=1] cython_UTx( \
+        cnp.ndarray[cnp.double_t, ndim=1] x, \
+        cnp.ndarray[cnp.int64_t, ndim=2] Uinds):
     """
     Given residuals (x), get np.dot(U.T, x)
     Used in 'updateDetSources'
@@ -991,7 +994,7 @@ def cython_UTx(cnp.ndarray[cnp.double_t,ndim=1] x, \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_logdet_dN( \
+cpdef double cython_logdet_dN( \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
         cnp.ndarray[cnp.double_t,ndim=1] Jvec, \
         cnp.ndarray[cnp.double_t,ndim=1] dNvec, \
@@ -1039,7 +1042,7 @@ def cython_logdet_dN( \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_logdet_dJ( \
+cpdef double cython_logdet_dJ( \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
         cnp.ndarray[cnp.double_t,ndim=1] Jvec, \
         cnp.ndarray[cnp.double_t,ndim=1] dJvec, \
@@ -1083,7 +1086,7 @@ def cython_logdet_dJ( \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_logdet_dN_dN( \
+cpdef double cython_logdet_dN_dN( \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
         cnp.ndarray[cnp.double_t,ndim=1] Jvec, \
         cnp.ndarray[cnp.double_t,ndim=1] dNvec1, \
@@ -1142,7 +1145,7 @@ def cython_logdet_dN_dN( \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_logdet_dN_dJ( \
+cpdef double cython_logdet_dN_dJ( \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
         cnp.ndarray[cnp.double_t,ndim=1] Jvec, \
         cnp.ndarray[cnp.double_t,ndim=1] dNvec, \
@@ -1195,7 +1198,7 @@ def cython_logdet_dN_dJ( \
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_logdet_dJ_dJ( \
+cpdef double cython_logdet_dJ_dJ( \
         cnp.ndarray[cnp.double_t,ndim=1] Nvec, \
         cnp.ndarray[cnp.double_t,ndim=1] Jvec, \
         cnp.ndarray[cnp.double_t,ndim=1] dJvec1, \
