@@ -4,7 +4,10 @@ cnp.import_array()
 
 from libc.math cimport log, sqrt, hypot
 import cython
-from scipy.linalg.cython_blas cimport dgemm, dger, dgemv, dpotrf, dpotri
+from scipy.linalg.cython_blas cimport dgemm, dger, dgemv
+from scipy.linalg.cython_lapack cimport dpotrf, dpotri
+
+
 
 
 cdef public void dgemm_(char *transa, char *transb, int *m, int *n, int *k,
@@ -1317,7 +1320,7 @@ cpdef cnp.ndarray[cnp.double_t, ndim=1] cython_block_shermor_0D_k(
         cnp.ndarray[cnp.double_t, ndim=1] r,
         cnp.ndarray[cnp.double_t, ndim=1] Nvec,
         cnp.ndarray[cnp.double_t, ndim=1] Jvec,
-        cnp.ndarray[cnp.int_t,   ndim=2] Uinds):
+        cnp.ndarray[cnp.int64_t,   ndim=2] Uinds):
     """
     Block-wise solve using Sherman-Morrison-Woodbury for one connected component:
 
@@ -1351,7 +1354,7 @@ cpdef cnp.ndarray[cnp.double_t, ndim=1] cython_block_shermor_0D_k(
                     M[bj,bi] += ni[i]
 
     # Cholesky + invert M in-place
-    uplo = 'L'
+    uplo = b'L'[0]
     KK = k
     dpotrf(&uplo, &KK, &M[0,0], &KK, &info)
     if info != 0:
@@ -1386,7 +1389,7 @@ cpdef tuple cython_block_shermor_1D1_k(
         cnp.ndarray[cnp.double_t, ndim=1] y,
         cnp.ndarray[cnp.double_t, ndim=1] Nvec,
         cnp.ndarray[cnp.double_t, ndim=1] Jvec,
-        cnp.ndarray[cnp.int_t,   ndim=2] Uinds):
+        cnp.ndarray[cnp.int64_t,   ndim=2] Uinds):
     """
     Block-wise solve using Sherman-Morrison-Woodbury for individual connected
     components.
@@ -1431,7 +1434,7 @@ cpdef tuple cython_block_shermor_2D2_rankk(
         cnp.ndarray[cnp.double_t, ndim=2] Z2,
         cnp.ndarray[cnp.double_t, ndim=1] Nvec,
         cnp.ndarray[cnp.double_t, ndim=1] Jvec,
-        cnp.ndarray[cnp.int_t,   ndim=2] Uinds):
+        cnp.ndarray[cnp.int64_t,   ndim=2] Uinds):
     """
     Fast asymmetric rank-k routine that does the
     2D2 asymmetric solve: Z2^T (D+UJU^T)^{-1} Z1
@@ -1476,34 +1479,49 @@ cpdef cnp.ndarray[cnp.double_t, ndim=2] cython_block_sqrtsolve_rankk(
         cnp.ndarray[cnp.double_t, ndim=2] X,
         cnp.ndarray[cnp.double_t, ndim=1] Nvec,
         cnp.ndarray[cnp.double_t, ndim=1] Jvec,
-        cnp.ndarray[cnp.int_t,   ndim=2] Uinds):
+        cnp.ndarray[cnp.int64_t,   ndim=2] Uinds):
     cdef int n = X.shape[0]
     cdef int m = X.shape[1]
     cdef int k = Jvec.shape[0]
     cdef cnp.ndarray[cnp.double_t, ndim=2] Lix = np.empty((n,m), dtype=np.double)
     cdef cnp.ndarray[cnp.double_t, ndim=2] A
     cdef int bi, i, j, start, stop, blk, info, B
+    cdef char uplo = <char>b'L'[0]
+    cdef double alpha = 1.0, beta = 0.0
+    cdef int incx = 1, incy = 1
     cdef char u
     cdef double *colX
 
-    # scale by sqrt N
+    # scale by N^{-1/2}
     for i in range(n):
-        for j in range(m): Lix[i,j] = X[i,j] / sqrt(Nvec[i])
+        for j in range(m):
+            Lix[i,j] = X[i,j] / sqrt(Nvec[i])
+
     for bi in range(k):
-        start = Uinds[bi,0]; stop = Uinds[bi,1]
-        blk = stop - start
+        start = Uinds[bi,0]
+        stop  = Uinds[bi,1]
+        blk   = stop - start
+
         # build small A = diag(Nvec[idxs]) + Jvec[bi] * ones
         A = np.diag(Nvec[start:stop])
         A += Jvec[bi]
 
-        # cholesky
-        u = 'L';
+        # Cholesky factor A in-place
         B = blk
-        dpotrf(&u, &B, &A[0,0], &B, &info)
-        if info: raise RuntimeError("Cholesky in sqrtsolve failed")
-        # forward solve
+        dpotrf(&uplo, &B, &A[0,0], &B, &info)
+        if info != 0:
+            raise RuntimeError("Cholesky in sqrtsolve failed")
+
+        # forward solve L y = Xblock  for each column
         for col in range(m):
             colX = &Lix[start, col]
-            # solve L y = Xblock
-            dgemv('N', &B, &B, & (1.0), &A[0,0], &B, colX, &1, &(0.0), colX, &1)
+            dgemv(&uplo,      # actually 'N' for no-transpose
+                  &B, &B,
+                  &alpha,     # α = 1.0
+                  &A[0,0], &B,# A, lda
+                  colX, &incx,# x, incx=1
+                  &beta,      # β = 0.0
+                  colX, &incy)# y, incy=1
+
     return Lix
+
