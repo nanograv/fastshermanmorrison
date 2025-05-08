@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.linalg as sl
+from collections import defaultdict
 from . import cython_fastshermanmorrison as cfsm
 
 
@@ -363,8 +364,8 @@ class ShermanMorrisonRK(object):
         self._jvec      = np.asarray(jvec)
         self._has_sqrtsolve = True
 
+        # Disjoint-set (union-find) initialization
         B = len(self._orig_idxs)
-        # 1) Disjoint-set (union-find) init
         parent = list(range(B))
         def find(i):
             while parent[i] != i:
@@ -377,27 +378,25 @@ class ShermanMorrisonRK(object):
             if ri != rj:
                 parent[rj] = ri
 
-        # 2) Inverted index: map each position → list of blocks that contain it
-        from collections import defaultdict
+        # Inverted index: map each position → list of blocks that contain it
         pos2blocks = defaultdict(list)
         for b, idx in enumerate(self._orig_idxs):
             for p in idx:
                 pos2blocks[p].append(b)
 
-        # 3) Union all blocks that share any position
+        # Union all blocks that share any position
         for blocks in pos2blocks.values():
             first = blocks[0]
             for b in blocks[1:]:
                 union(first, b)
 
-        # 4) Gather connected components of block-IDs
+        # Gather connected components of block-IDs
         comps = {}
         for b in range(B):
             root = find(b)
             comps.setdefault(root, []).append(b)
 
-        # 5) Build your self._components exactly as before,
-        #    but iterating over comps.values() instead of flood-fill.
+        # assemble per-component data
         self._components = []
         for comp_blocks in comps.values():
             # union all indices
@@ -407,7 +406,7 @@ class ShermanMorrisonRK(object):
             k = len(comp_blocks)
             D = len(all_idx)
             U = np.zeros((D, k))
-            comp_j = np.zeros(k)
+            comp_j = np.zeros(k, dtype=np.double)
             for col, b in enumerate(sorted(comp_blocks)):
                 comp_j[col] = self._jvec[b]
                 for i in self._orig_idxs[b]:
@@ -570,7 +569,9 @@ class FastShermanMorrisonRK:
         self._nvec = np.asarray(nvec)
         self._orig_idxs = [indices_from_slice(s) for s in slices]
         self._jvec      = np.asarray(jvec)
-        # build connected components via union-find
+        self._has_sqrtsolve = True
+
+        # Disjoint-set (union-find) initialization
         B = len(self._orig_idxs)
         parent = list(range(B))
         def find(i):
@@ -578,26 +579,39 @@ class FastShermanMorrisonRK:
                 parent[i] = parent[parent[i]]
                 i = parent[i]
             return i
+
         def union(i,j):
             ri, rj = find(i), find(j)
             if ri != rj:
                 parent[rj] = ri
-        from collections import defaultdict
+
+        # Inverted index: map each position → list of blocks that contain it
         pos2blocks = defaultdict(list)
         for b, idx in enumerate(self._orig_idxs):
             for p in idx:
                 pos2blocks[p].append(b)
+
+        # Union all blocks that share any position
         for blocks in pos2blocks.values():
             first = blocks[0]
-            for b in blocks[1:]: union(first,b)
+            for b in blocks[1:]:
+                union(first,b)
+
+        # Gather connected components of block-IDs
         comps = {}
-        for b in range(B): comps.setdefault(find(b), []).append(b)
+        for b in range(B):
+            root = find(b)
+            comps.setdefault(root, []).append(b)
+
         # assemble per-component data
         self._components = []
         for comp_blocks in comps.values():
             all_idx = sorted({i for b in comp_blocks for i in self._orig_idxs[b]})
-            pos_map = {v:i for i,v in enumerate(all_idx)}
+            pos_map = {idx:i for i, idx in enumerate(all_idx)}
+
             k = len(comp_blocks)
+            D = len(all_idx)
+            U = np.zeros((D, k))
             Uinds = np.zeros((k,2), dtype=int)
             comp_j = np.zeros(k, dtype=np.double)
             for col, b in enumerate(sorted(comp_blocks)):
@@ -605,17 +619,24 @@ class FastShermanMorrisonRK:
                 idxs = self._orig_idxs[b]
                 Uinds[col,0] = pos_map[idxs[0]]
                 Uinds[col,1] = pos_map[idxs[-1]] + 1
-            self._components.append({'idxs': np.array(all_idx, dtype=int),
-                                     'j': comp_j,
-                                     'Uinds': Uinds})
+                for i in self._orig_idxs[b]:
+                    U[pos_map[i], col] = 1.0
+
+            self._components.append({
+                'idxs' : np.array(all_idx, dtype=int),
+                'U'    : U,
+                'j'    : comp_j,
+                'Uinds': Uinds
+            })
 
     def _solve_D1(self, x):
         out = np.zeros_like(x)
         for comp in self._components:
             idx = comp['idxs']
-            out[idx] = np.asarray(cfsm.cython_block_shermor_0D_k(
-                x[idx], self._nvec[idx], comp['j'], comp['Uinds']
+            out[idx] = np.asarray(cfsm.cython_block_shermor_solve_D1_k(
+                x[idx], self._nvec[idx], comp['j'], comp['U']
             ))
+
         return out
 
     def _solve_1D1(self, x, y):
@@ -623,7 +644,7 @@ class FastShermanMorrisonRK:
         tot_yNx    = 0.0
         for comp in self._components:
             idx = comp['idxs']
-            logdet, yNx = cfsm.cython_block_shermor_1D1_k(
+            logdet, yNx = cfsm.cython_block_shermor_solve_1D1_k(
                 x[idx], y[idx], self._nvec[idx], comp['j'], comp['Uinds']
             )
             tot_logdet += logdet

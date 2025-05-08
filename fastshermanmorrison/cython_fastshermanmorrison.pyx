@@ -1316,75 +1316,51 @@ def cython_blas_idx_block_shermor_2D_asymm(Z1, Z2, Nvec, Jvec, Uinds, slc_isort)
 
     return Jldet, ZNZ
 
-cpdef cnp.ndarray[cnp.double_t, ndim=1] cython_block_shermor_0D_k(
+cpdef cnp.ndarray[cnp.double_t, ndim=1] cython_block_shermor_solve_D1_k(
         cnp.ndarray[cnp.double_t, ndim=1] r,
         cnp.ndarray[cnp.double_t, ndim=1] Nvec,
         cnp.ndarray[cnp.double_t, ndim=1] Jvec,
-        cnp.ndarray[cnp.int64_t,   ndim=2] Uinds):
+        cnp.ndarray[cnp.double_t, ndim=2] U
+    ):
     """
-    Block-wise solve using Sherman-Morrison-Woodbury for one connected component:
-
-    0D solve: (D + U J U^T)^{-1} r
+    Block-wise D1 solve: returns (D + U J U^T)^{-1} r.
+    U is a dense 0/1 matrix of shape (D, k).
     """
-    cdef int n = r.shape[0]
-    cdef int k = Jvec.shape[0]
-    cdef cnp.ndarray[cnp.double_t, ndim=1] out = np.empty(n, dtype=np.double)
-    cdef cnp.ndarray[cnp.double_t, ndim=1] ni  = 1.0 / Nvec
-    cdef cnp.ndarray[cnp.double_t, ndim=1] kvec = np.zeros(k, dtype=np.double)
-    cdef cnp.ndarray[cnp.double_t, ndim=2] M    = np.zeros((k,k), dtype=np.double)
-    cdef cnp.ndarray[cnp.double_t, ndim=1] tmp = np.zeros(k, dtype=np.double)
-    cdef int bi, bj, i, start, stop, info, KK
-    cdef char uplo
+    cdef int D = r.shape[0]
+    cdef int KK = Jvec.shape[0]
+    cdef int info
+    cdef char uplo = b'L'[0]
 
-    # initial diagonal solve
-    for i in range(n):
-        out[i] = r[i] * ni[i]
+    cdef cnp.ndarray[cnp.double_t, ndim=1] Dinv = 1.0 / Nvec
+    cdef cnp.ndarray[cnp.double_t, ndim=1] out = r * Dinv
+    cdef cnp.ndarray[cnp.double_t, ndim=2] M = np.diag(1.0 / Jvec)
+    M += (U.T * Dinv[None, :]).dot(U)
+    #M = np.linalg.inv(M)
 
-    # assemble M = J^{-1} + U^T (D^{-1} U)
-    for bi in range(k):
-        M[bi,bi] = 1.0 / Jvec[bi]
-        start = Uinds[bi,0]; stop = Uinds[bi,1]
-        for i in range(start, stop):
-            M[bi,bi] += ni[i]
-            # off-diagonals: if bj block covers the same index i
-            for bj in range(bi+1, k):
-                # test membership of bj in same index
-                if i >= Uinds[bj,0] and i < Uinds[bj,1]:
-                    M[bi,bj] += ni[i]
-                    M[bj,bi] += ni[i]
-
-    # Cholesky + invert M in-place
-    uplo = b'L'[0]
-    KK = k
+    # Invert M in-place using Cholesky
+    M = np.asfortranarray(M)
     dpotrf(&uplo, &KK, &M[0,0], &KK, &info)
     if info != 0:
-        raise RuntimeError("Cholesky failed in cython_block_shermor_0D_k")
+        raise RuntimeError("Cholesky failed in cython_block_shermor_solve_D1_k")
     dpotri(&uplo, &KK, &M[0,0], &KK, &info)
     if info != 0:
-        raise RuntimeError("Inversion failed in cython_block_shermor_0D_k")
+        raise RuntimeError("Inversion failed in cython_block_shermor_solve_D1_k")
 
-    # build kvec = U^T (D^{-1} r)
-    for bi in range(k):
-        start = Uinds[bi,0]; stop = Uinds[bi,1]
-        kvec[bi] = 0.0
-        for i in range(start, stop):
-            kvec[bi] += r[i] * ni[i]
+    # Make M^{-1} symmetric
+    for i in range(KK):
+        for j in range(i+1, KK):
+            M[i,j] = M[j,i]
 
-    # tmp = M @ kvec
-    for bi in range(k):
-        for bj in range(k):
-            tmp[bi] += M[bi,bj] * kvec[bj]
+    cdef cnp.ndarray[cnp.double_t, ndim=1] kvec = U.T.dot(Dinv * r)
+    cdef cnp.ndarray[cnp.double_t, ndim=1] corr = Dinv * (U.dot(M.dot(kvec)))
 
-    # apply correction
-    for bi in range(k):
-        start = Uinds[bi,0]; stop = Uinds[bi,1]
-        for i in range(start, stop):
-            out[i] -= ni[i] * tmp[bi]
+    out -= corr
 
     return out
 
+
 # 1D1 solve: y^T (D+UJU^T)^{-1} x + logdet
-cpdef tuple cython_block_shermor_1D1_k(
+cpdef tuple cython_block_shermor_solve_1D1_k(
         cnp.ndarray[cnp.double_t, ndim=1] x,
         cnp.ndarray[cnp.double_t, ndim=1] y,
         cnp.ndarray[cnp.double_t, ndim=1] Nvec,
