@@ -39,7 +39,6 @@ def extend_isort(isort, length):
     leftover = list(set(np.arange(length)) - set(isort))
     return np.concatenate([isort, leftover])
 
-
 class ShermanMorrison(object):
     """Custom container class for Sherman-morrison array inversion."""
 
@@ -481,7 +480,6 @@ class ShermanMorrisonRK(object):
         return ZNX
 
     def _get_logdet(self):
-        # log det of N + ∑ U_j j_j U_j^T
         ld = np.sum(np.log(self._nvec))
         for comp in self._components:
             idxs = comp['idxs']
@@ -496,7 +494,6 @@ class ShermanMorrisonRK(object):
         return ld
 
     def solve(self, other, left_array=None, logdet=False):
-        # same dispatch logic as before, but calls our new helpers
         if other.ndim == 1:
             if left_array is None:
                 ret = self._solve_D1(other)
@@ -504,7 +501,6 @@ class ShermanMorrisonRK(object):
                 if left_array.ndim == 1:
                     ret = self._solve_1D1(other, left_array)
                 else:
-                    # y^T N^{-1} x path
                     ret = np.dot(left_array.T, self._solve_D1(other))
         elif other.ndim == 2:
             if left_array is None:
@@ -522,14 +518,11 @@ class ShermanMorrisonRK(object):
 
     def _sqrtsolve_D2(self, x):
         # initial divide‐out by sqrt(N)
-        out = x / np.sqrt(self._nvec)[:,None]
+        out = x / np.sqrt(self._nvec)[:, None]
 
         # for each component, do a full Cholesky of the small block
         for comp in self._components:
             idxs = comp['idxs']
-            if len(idxs) == 1:
-                # singletons already handled by N^{-1/2}
-                continue
 
             D = self._nvec[idxs]
             A = np.diag(D)
@@ -630,45 +623,68 @@ class FastShermanMorrisonRK:
             })
 
     def _solve_D1(self, x):
-        out = np.zeros_like(x)
-        for comp in self._components:
-            idx = comp['idxs']
-            out[idx] = np.asarray(cfsm.cython_block_shermor_solve_D1_k(
-                x[idx], self._nvec[idx], comp['j'], comp['U']
-            ))
-
+        out = np.empty_like(x)
+        cfsm.cython_block_shermor_solve_D1_k(
+            x,
+            self._nvec,
+            [comp['idxs'] for comp in self._components],
+            [comp['j']    for comp in self._components],
+            [comp['U']    for comp in self._components],
+            out
+        )
         return out
 
     def _solve_1D1(self, x, y):
-        tot_logdet = 0.0
-        tot_yNx    = 0.0
+        tot_logdet = np.sum(np.log(self._nvec))
+        tot_yNx    = np.dot(y, x / self._nvec)          # No all elements are in components!
         for comp in self._components:
             idx = comp['idxs']
-            logdet, yNx = cfsm.cython_block_shermor_solve_1D1_k(
-                x[idx], y[idx], self._nvec[idx], comp['j'], comp['Uinds']
+            logdet, yNx = cfsm.cython_block_shermor_solve_1D1_small(
+                x[idx], y[idx], self._nvec[idx], comp['j'], comp['U']
             )
             tot_logdet += logdet
             tot_yNx    += yNx
         return tot_logdet, tot_yNx
 
     def _solve_2D2(self, X, Z):
-        total_logdet = 0.0
-        ZNZ_acc = None
+        """
+        Compute Z^T N^{-1} X with overlapping‐block Woodbury updates.
+        Returns (logdet, ZNX) where ZNX has shape (Z.shape[1], X.shape[1]).
+        """
+        total_logdet = np.sum(np.log(self._nvec))
+        # pre‐allocate accumulator to the correct global shape
+        p = X.shape[1]
+        q = Z.shape[1]
+        #ZNX_acc = np.zeros((q, p), dtype=float)
+        ZNX_acc = (Z.T / self._nvec[None,:]).dot(X)
+
         for comp in self._components:
-            idx = comp['idxs']
-            subZ1 = X[idx,:]
-            subZ2 = Z[idx,:]
-            logdet, ZNZ = cfsm.cython_block_shermor_2D2_rankk(
-                subZ1, subZ2, self._nvec[idx], comp['j'], comp['Uinds']
+            idx, U, j = comp['idxs'], comp['U'], comp['j']
+            # call the small‐block Cython solver
+            ld, ZNX_block = cfsm.cython_block_shermor_solve_2D2_small(
+                X[idx, :],    # shape (block_rows, p)
+                Z[idx, :],    # shape (block_rows, q)
+                self._nvec[idx],
+                j,
+                U
             )
-            total_logdet += logdet
-            if ZNZ_acc is None:
-                ZNZ_acc = ZNZ.copy()
-            else:
-                ZNZ_acc += ZNZ
-        return total_logdet, ZNZ_acc
+            total_logdet += ld
+            ZNX_acc      += ZNX_block
+
+        return total_logdet, ZNX_acc
+
+    def _get_logdet(self):
+        """Returns log determinant of :math:`N+UJU^{T}` where :math:`U`
+        is a quantization matrix.
+        """
+
+        logJdet, _ = self._solve_1D1(np.zeros_like(self._nvec), np.zeros_like(self._nvec))
+
+        return logJdet
 
     def solve(self, other, left_array=None, logdet=False):
+        logdet_val = None
+
         if other.ndim == 1:
             if left_array is None:
                 ret = self._solve_D1(other)
@@ -680,17 +696,42 @@ class FastShermanMorrisonRK:
         elif other.ndim == 2:
             if left_array is None:
                 raise NotImplementedError
+            elif left_array.ndim == 1:
+                logdet_val, ret = self._solve_2D2(other, left_array[:,None])
+                ret = ret[0,:]
             else:
                 logdet_val, ret = self._solve_2D2(other, left_array)
         else:
             raise TypeError
+
+        if not logdet_val:
+            logdet_val = self._get_logdet()
+
         return (ret, logdet_val) if logdet else ret
 
-    def sqrtsolve(self, X):
-        out = np.zeros_like(X)
+    def _sqrtsolve_D2(self, X):
+        out = X / np.sqrt(self._nvec)[:,None]
         for comp in self._components:
-            idx = comp['idxs']
-            out[idx,:] = np.asarray(cfsm.cython_block_sqrtsolve_rankk(
-                X[idx,:], self._nvec[idx], comp['j'], comp['Uinds']
-            ))
+            idx, U, j = comp['idxs'], comp['U'], comp['j']
+            out[idx,:] = cfsm.cython_block_shermor_sqrtsolve_small(
+                X[idx,:], self._nvec[idx], j, U
+            )
         return out
+
+    def sqrtsolve(self, other, left_array=None):
+        if other.ndim == 1:
+            vec = other.reshape(-1,1)
+            ret = self._sqrtsolve_D2(vec).ravel()
+            if left_array is not None and left_array.ndim==1:
+                return np.sum(left_array * ret)
+            elif left_array is not None and left_array.ndim==2:
+                return np.sum(left_array * ret[:,None], axis=0)
+            else:
+                return ret
+        elif other.ndim == 2:
+            if left_array is None:
+                return self._sqrtsolve_D2(other)
+            else:
+                raise NotImplementedError
+        else:
+            raise TypeError
