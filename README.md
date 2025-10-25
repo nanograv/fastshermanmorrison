@@ -40,7 +40,7 @@ If you use `fastshermanmorrison-pulsar` in your research, please cite it as foll
   author       = {Rutger van Haasteren},
   title        = {fastshermanmorrison-pulsar: Fast Sherman-Morrison Updates for Pulsar Timing},
   year         = {2023},
-  version      = {0.5.3},
+  version      = {0.5.4},
   publisher    = {GitHub},
   url          = {https://github.com/nanograv/fastshermanmorrison},
   doi          = {10.5281/zenodo.17439722},
@@ -49,16 +49,5 @@ If you use `fastshermanmorrison-pulsar` in your research, please cite it as foll
 ```
 
 ### Text Citation
-van Haasteren, R. (2023). fastshermanmorrison-pulsar: Fast Sherman-Morrison Updates for Pulsar Timing (Version 0.5.3) [Software]. GitHub. https://github.com/nanograv/fastshermanmorrison
-
-### Alternative Citation (if DOI not available)
-```bibtex
-@manual{fastshermanmorrison-pulsar,
-  title        = {fastshermanmorrison-pulsar: Fast Sherman-Morrison Updates for Pulsar Timing},
-  author       = {Rutger van Haasteren},
-  year         = {2023},
-  note         = {Version 0.5.3},
-  url          = {https://github.com/nanograv/fastshermanmorrison}
-}
-```
+van Haasteren, R. (2023). fastshermanmorrison-pulsar: Fast Sherman-Morrison Updates for Pulsar Timing (Version 0.5.4) [Software]. GitHub. https://github.com/nanograv/fastshermanmorrison
 
