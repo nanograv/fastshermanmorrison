@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "van Haasteren"
+    given-names: "Rutger"
+title: "fastshermanmorrison-pulsar: Fast Sherman-Morrison Updates for Pulsar Timing"
+version: "0.5.4"
+date-released: 2025-10-25
+url: "https://github.com/nanograv/fastshermanmorrison"
+doi: "10.5281/zenodo.17439722"
+license: MIT
+keywords:
+  - "pulsar timing"
+  - "Sherman-Morrison"
+  - "matrix updates"
+  - "cython"
+  - "astronomy"
+abstract: "Cython code to more quickly evaluate Sherman-Morrison combinations as needed by kernel ecorr in Enterprise."
+repository-code: "https://github.com/nanograv/fastshermanmorrison"

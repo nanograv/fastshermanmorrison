@@ -22,6 +22,7 @@ This document outlines the step-by-step process to release a new version of the 
 
 - **Verify version update**: Check that `fastshermanmorrison/_version.py` gets updated automatically
 - **Update README.md**: Update the version number in the citation section if needed
+- **Note**: After Zenodo creates a DOI for this release, update the DOI in README.md and CITATION.cff
 
 ### 2. Update Documentation
 
