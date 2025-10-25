@@ -30,19 +30,35 @@ conda install -c vhaasteren fastshermanmorrison-pulsar
 
 Availability on conda-forge is upcoming in a later release
 
-## citation
-Did you use `fastshermanmorrison`?
-Remember to cite it as:
+## Citation
 
->van Haasteren, Rutger (2023). fastshermanmorrison v0.5.2. https://github.com/nanograv/fastshermanmorrison
+If you use `fastshermanmorrison-pulsar` in your research, please cite it as follows:
 
-```latex
-@misc{fastshermanmorrison,
+### BibTeX Entry
+```bibtex
+@software{fastshermanmorrison-pulsar,
   author       = {Rutger van Haasteren},
-  title        = {fastshermanmorrison},
+  title        = {fastshermanmorrison-pulsar: Fast Sherman-Morrison Updates for Pulsar Timing},
   year         = {2023},
+  version      = {0.5.3},
+  publisher    = {GitHub},
   url          = {https://github.com/nanograv/fastshermanmorrison},
-  note         = {v0.5.3}
+  doi          = {10.5281/zenodo.XXXXXXX},
+  note         = {Software for efficient Sherman-Morrison matrix updates in pulsar timing analysis}
+}
+```
+
+### Text Citation
+van Haasteren, R. (2023). fastshermanmorrison-pulsar: Fast Sherman-Morrison Updates for Pulsar Timing (Version 0.5.3) [Software]. GitHub. https://github.com/nanograv/fastshermanmorrison
+
+### Alternative Citation (if DOI not available)
+```bibtex
+@manual{fastshermanmorrison-pulsar,
+  title        = {fastshermanmorrison-pulsar: Fast Sherman-Morrison Updates for Pulsar Timing},
+  author       = {Rutger van Haasteren},
+  year         = {2023},
+  note         = {Version 0.5.3},
+  url          = {https://github.com/nanograv/fastshermanmorrison}
 }
 ```
 
