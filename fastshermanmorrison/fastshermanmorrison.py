@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.linalg as sl
+from collections import defaultdict
 from . import cython_fastshermanmorrison as cfsm
 
 
@@ -37,7 +38,6 @@ def extend_isort(isort, length):
 
     leftover = list(set(np.arange(length)) - set(isort))
     return np.concatenate([isort, leftover])
-
 
 class ShermanMorrison(object):
     """Custom container class for Sherman-morrison array inversion."""
@@ -352,3 +352,386 @@ class FastShermanMorrison(ShermanMorrison):
             raise TypeError
 
         return ret
+
+
+class ShermanMorrisonRK(object):
+    """Diagonal + overlapping-blocks rank-k Woodbury updates."""
+
+    def __init__(self, jvec, slices, nvec):
+        self._nvec = np.asarray(nvec)
+        self._orig_idxs = [indices_from_slice(s) for s in slices]
+        self._jvec      = np.asarray(jvec)
+        self._has_sqrtsolve = True
+
+        # Disjoint-set (union-find) initialization
+        B = len(self._orig_idxs)
+        parent = list(range(B))
+        def find(i):
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        def union(i, j):
+            ri, rj = find(i), find(j)
+            if ri != rj:
+                parent[rj] = ri
+
+        # Inverted index: map each position → list of blocks that contain it
+        pos2blocks = defaultdict(list)
+        for b, idx in enumerate(self._orig_idxs):
+            for p in idx:
+                pos2blocks[p].append(b)
+
+        # Union all blocks that share any position
+        for blocks in pos2blocks.values():
+            first = blocks[0]
+            for b in blocks[1:]:
+                union(first, b)
+
+        # Gather connected components of block-IDs
+        comps = {}
+        for b in range(B):
+            root = find(b)
+            comps.setdefault(root, []).append(b)
+
+        # assemble per-component data
+        self._components = []
+        for comp_blocks in comps.values():
+            # union all indices
+            all_idx = sorted({i for b in comp_blocks for i in self._orig_idxs[b]})
+            pos_map = {idx:i for i, idx in enumerate(all_idx)}
+
+            k = len(comp_blocks)
+            D = len(all_idx)
+            U = np.zeros((D, k))
+            comp_j = np.zeros(k, dtype=np.double)
+            for col, b in enumerate(sorted(comp_blocks)):
+                comp_j[col] = self._jvec[b]
+                for i in self._orig_idxs[b]:
+                    U[pos_map[i], col] = 1.0
+
+            self._components.append({
+                'idxs': np.array(all_idx, dtype=int),
+                'U'   : U,
+                'j'   : comp_j,
+            })
+
+    def _solve_D1(self, x):
+        # first: diagonal solve
+        out = x / self._nvec
+        # then subtract each component’s low-rank correction
+        for comp in self._components:
+            idxs = comp['idxs']
+            U    = comp['U']
+            j    = comp['j']
+            Dinv = 1.0 / self._nvec[idxs]
+
+            # build M = J^{-1} + U^T (Dinv * U)
+            Jinv = np.diag(1.0 / j)
+            M    = Jinv + U.T.dot(Dinv[:,None] * U)
+            invM = np.linalg.inv(M)
+
+            # k = U^T (Dinv * x[idxs])
+            k_vec = U.T.dot(Dinv * x[idxs])
+            # correction = Dinv * ( U ( invM @ k_vec ) )
+            corr = Dinv * ( U.dot(invM.dot(k_vec)) )
+            out[idxs] -= corr
+        return out
+
+    def _solve_1D1(self, x, y):
+        # y^T (N+UJU^T)^{-1} x
+        Nx  = x / self._nvec
+        yNx = np.dot(y, Nx)
+        for comp in self._components:
+            idxs = comp['idxs']
+            U    = comp['U']
+            j    = comp['j']
+            Dinv = 1.0 / self._nvec[idxs]
+
+            Jinv = np.diag(1.0 / j)
+            M    = Jinv + U.T.dot(Dinv[:,None] * U)
+            invM = np.linalg.inv(M)
+
+            kx = U.T.dot(Dinv * x[idxs])
+            ky = U.T.dot(Dinv * y[idxs])
+            yNx -= ky.dot(invM.dot(kx))
+        return yNx
+
+    def _solve_2D2(self, X, Z):
+        # Z^T (N+UJU^T)^{-1} X
+        # start with diagonal part:
+        Dinv = 1.0 / self._nvec
+        ZNX  = (Z * Dinv[:,None]).T.dot(X)
+        for comp in self._components:
+            idxs = comp['idxs']
+            U    = comp['U']
+            j    = comp['j']
+            Dinv_c = Dinv[idxs][:,None]
+
+            Jinv = np.diag(1.0 / j)
+            M    = Jinv + U.T.dot(Dinv_c * U)
+            invM = np.linalg.inv(M)
+
+            # low-rank correction
+            L = (Z[idxs,:] * Dinv_c).T.dot(U)         # shape (r × k)
+            R =       U.T.dot(Dinv_c * X[idxs,:])    # shape (k × c)
+            ZNX -= L.dot(invM.dot(R))
+        return ZNX
+
+    def _get_logdet(self):
+        ld = np.sum(np.log(self._nvec))
+        for comp in self._components:
+            idxs = comp['idxs']
+            U    = comp['U']
+            j    = comp['j']
+            Dinv = 1.0/self._nvec[idxs]
+
+            Jinv = np.diag(1.0/j)
+            M    = Jinv + U.T.dot(Dinv[:,None] * U)
+            sign, logdetM = np.linalg.slogdet(M)
+            ld += np.sum(np.log(j)) + logdetM
+        return ld
+
+    def solve(self, other, left_array=None, logdet=False):
+        if other.ndim == 1:
+            if left_array is None:
+                ret = self._solve_D1(other)
+            else:
+                if left_array.ndim == 1:
+                    ret = self._solve_1D1(other, left_array)
+                else:
+                    ret = np.dot(left_array.T, self._solve_D1(other))
+        elif other.ndim == 2:
+            if left_array is None:
+                raise NotImplementedError("ShermanMorrison does not implement _solve_D2")
+            elif left_array.ndim == 2:
+                ret = self._solve_2D2(other, left_array)
+            elif left_array.ndim == 1:
+                ret = np.dot(other.T, self._solve_D1(left_array))
+            else:
+                raise TypeError
+        else:
+            raise TypeError
+
+        return (ret, self._get_logdet()) if logdet else ret
+
+    def _sqrtsolve_D2(self, x):
+        # initial divide‐out by sqrt(N)
+        out = x / np.sqrt(self._nvec)[:, None]
+
+        # for each component, do a full Cholesky of the small block
+        for comp in self._components:
+            idxs = comp['idxs']
+
+            D = self._nvec[idxs]
+            A = np.diag(D)
+            # add each rank-1 piece from this component
+            for col, jv in enumerate(comp['j']):
+                # where U[:,col] == 1
+                mask = comp['U'][:,col].astype(bool)
+                A[np.ix_(mask, mask)] += jv
+
+            # now L L^T = A, solve L y = x[idxs]
+            Lblock = sl.cholesky(A, lower=True)
+            out[idxs,:] = sl.solve_triangular(Lblock, x[idxs,:], lower=True)
+
+        return out
+
+    def sqrtsolve(self, other, left_array=None):
+        if other.ndim == 1:
+            vec = other.reshape(-1,1)
+            ret = self._sqrtsolve_D2(vec).ravel()
+            if left_array is not None and left_array.ndim==1:
+                return np.sum(left_array * ret)
+            elif left_array is not None and left_array.ndim==2:
+                return np.sum(left_array * ret[:,None], axis=0)
+            else:
+                return ret
+        elif other.ndim == 2:
+            if left_array is None:
+                return self._sqrtsolve_D2(other)
+            else:
+                raise NotImplementedError
+        else:
+            raise TypeError
+
+
+class FastShermanMorrisonRK:
+    def __init__(self, jvec, slices, nvec):
+        self._nvec = np.asarray(nvec)
+        self._orig_idxs = [indices_from_slice(s) for s in slices]
+        self._jvec      = np.asarray(jvec)
+        self._has_sqrtsolve = True
+
+        # Disjoint-set (union-find) initialization
+        B = len(self._orig_idxs)
+        parent = list(range(B))
+        def find(i):
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        def union(i,j):
+            ri, rj = find(i), find(j)
+            if ri != rj:
+                parent[rj] = ri
+
+        # Inverted index: map each position → list of blocks that contain it
+        pos2blocks = defaultdict(list)
+        for b, idx in enumerate(self._orig_idxs):
+            for p in idx:
+                pos2blocks[p].append(b)
+
+        # Union all blocks that share any position
+        for blocks in pos2blocks.values():
+            first = blocks[0]
+            for b in blocks[1:]:
+                union(first,b)
+
+        # Gather connected components of block-IDs
+        comps = {}
+        for b in range(B):
+            root = find(b)
+            comps.setdefault(root, []).append(b)
+
+        # assemble per-component data
+        self._components = []
+        for comp_blocks in comps.values():
+            all_idx = sorted({i for b in comp_blocks for i in self._orig_idxs[b]})
+            pos_map = {idx:i for i, idx in enumerate(all_idx)}
+
+            k = len(comp_blocks)
+            D = len(all_idx)
+            U = np.zeros((D, k))
+            Uinds = np.zeros((k,2), dtype=int)
+            comp_j = np.zeros(k, dtype=np.double)
+            for col, b in enumerate(sorted(comp_blocks)):
+                comp_j[col] = self._jvec[b]
+                idxs = self._orig_idxs[b]
+                Uinds[col,0] = pos_map[idxs[0]]
+                Uinds[col,1] = pos_map[idxs[-1]] + 1
+                for i in self._orig_idxs[b]:
+                    U[pos_map[i], col] = 1.0
+
+            self._components.append({
+                'idxs' : np.array(all_idx, dtype=int),
+                'U'    : U,
+                'j'    : comp_j,
+                'Uinds': Uinds
+            })
+
+    def _solve_D1(self, x):
+        out = np.empty_like(x)
+        cfsm.cython_block_shermor_solve_D1_k(
+            x,
+            self._nvec,
+            [comp['idxs'] for comp in self._components],
+            [comp['j']    for comp in self._components],
+            [comp['U']    for comp in self._components],
+            out
+        )
+        return out
+
+    def _solve_1D1(self, x, y):
+        tot_logdet = np.sum(np.log(self._nvec))
+        tot_yNx    = np.dot(y, x / self._nvec)          # No all elements are in components!
+        for comp in self._components:
+            idx = comp['idxs']
+            logdet, yNx = cfsm.cython_block_shermor_solve_1D1_small(
+                x[idx], y[idx], self._nvec[idx], comp['j'], comp['U']
+            )
+            tot_logdet += logdet
+            tot_yNx    += yNx
+        return tot_logdet, tot_yNx
+
+    def _solve_2D2(self, X, Z):
+        """
+        Compute Z^T N^{-1} X with overlapping‐block Woodbury updates.
+        Returns (logdet, ZNX) where ZNX has shape (Z.shape[1], X.shape[1]).
+        """
+        total_logdet = np.sum(np.log(self._nvec))
+        # pre‐allocate accumulator to the correct global shape
+        p = X.shape[1]
+        q = Z.shape[1]
+        #ZNX_acc = np.zeros((q, p), dtype=float)
+        ZNX_acc = (Z.T / self._nvec[None,:]).dot(X)
+
+        for comp in self._components:
+            idx, U, j = comp['idxs'], comp['U'], comp['j']
+            # call the small‐block Cython solver
+            ld, ZNX_block = cfsm.cython_block_shermor_solve_2D2_small(
+                X[idx, :],    # shape (block_rows, p)
+                Z[idx, :],    # shape (block_rows, q)
+                self._nvec[idx],
+                j,
+                U
+            )
+            total_logdet += ld
+            ZNX_acc      += ZNX_block
+
+        return total_logdet, ZNX_acc
+
+    def _get_logdet(self):
+        """Returns log determinant of :math:`N+UJU^{T}` where :math:`U`
+        is a quantization matrix.
+        """
+
+        logJdet, _ = self._solve_1D1(np.zeros_like(self._nvec), np.zeros_like(self._nvec))
+
+        return logJdet
+
+    def solve(self, other, left_array=None, logdet=False):
+        logdet_val = None
+
+        if other.ndim == 1:
+            if left_array is None:
+                ret = self._solve_D1(other)
+            elif left_array.ndim == 1:
+                logdet_val, yNx = self._solve_1D1(other, left_array)
+                ret = yNx
+            else:
+                ret = left_array.T.dot(self._solve_D1(other))
+        elif other.ndim == 2:
+            if left_array is None:
+                raise NotImplementedError
+            elif left_array.ndim == 1:
+                logdet_val, ret = self._solve_2D2(other, left_array[:,None])
+                ret = ret[0,:]
+            else:
+                logdet_val, ret = self._solve_2D2(other, left_array)
+        else:
+            raise TypeError
+
+        if not logdet_val:
+            logdet_val = self._get_logdet()
+
+        return (ret, logdet_val) if logdet else ret
+
+    def _sqrtsolve_D2(self, X):
+        out = X / np.sqrt(self._nvec)[:,None]
+        for comp in self._components:
+            idx, U, j = comp['idxs'], comp['U'], comp['j']
+            out[idx,:] = cfsm.cython_block_shermor_sqrtsolve_small(
+                X[idx,:], self._nvec[idx], j, U
+            )
+        return out
+
+    def sqrtsolve(self, other, left_array=None):
+        if other.ndim == 1:
+            vec = other.reshape(-1,1)
+            ret = self._sqrtsolve_D2(vec).ravel()
+            if left_array is not None and left_array.ndim==1:
+                return np.sum(left_array * ret)
+            elif left_array is not None and left_array.ndim==2:
+                return np.sum(left_array * ret[:,None], axis=0)
+            else:
+                return ret
+        elif other.ndim == 2:
+            if left_array is None:
+                return self._sqrtsolve_D2(other)
+            else:
+                raise NotImplementedError
+        else:
+            raise TypeError
