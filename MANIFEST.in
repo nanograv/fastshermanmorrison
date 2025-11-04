@@ -1,3 +1,4 @@
 include fastshermanmorrison/fastshermanmorrison.py
 include fastshermanmorrison/fastshermanmorrison.c
 include fastshermanmorrison/cython_fastshermanmorrison.pyx
+include fastshermanmorrison/_version.py
