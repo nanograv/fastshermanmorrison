@@ -43,7 +43,7 @@ If you use `fastshermanmorrison-pulsar` in your research, please cite it as foll
   version      = {0.5.4},
   publisher    = {GitHub},
   url          = {https://github.com/nanograv/fastshermanmorrison},
-  doi          = {10.5281/zenodo.17439722},
+  doi          = {10.5281/zenodo.17439723},
   note         = {Software for efficient Sherman-Morrison matrix updates in pulsar timing analysis}
 }
 ```
