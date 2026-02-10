@@ -88,8 +88,9 @@ class ShermanMorrison(object):
                 yNx -= beta * np.dot(niblock, xblock) * np.dot(niblock, yblock)
         return yNx
 
-    def _sqrtsolve_D2(self, x):
-        """Solves :math:`N^{-1/2}x` where :math:`x` is a 2-d array."""
+    def _cholsqrtsolve_D2(self, x):
+        """Solves :math:`L^{-1} x` where :math:`x` is a 2-d array
+        and :math:`L L^T = N` (Cholesky-based whitening via scipy)."""
 
         Lix = x / np.sqrt(self._nvec)[:, None]
         for idx, jv in zip(self._idxs, self._jvec):
@@ -100,6 +101,32 @@ class ShermanMorrison(object):
             Lix[idx, :] = sl.solve_triangular(Lblock, Xblock, trans=0, lower=True)
 
         return Lix
+
+    def _sqrtsolve_D2(self, x):
+        """Applies :math:`N^{-1/2} x` where :math:`x` is a 2-d array,
+        using the closed-form diagonal-plus-rank1 inverse square-root
+        (no Cholesky factor is formed)."""
+
+        sqrtN = np.sqrt(self._nvec)
+        Wix = x / sqrtN[:, None]
+
+        for idx, jv in zip(self._idxs, self._jvec):
+            d = self._nvec[idx]
+            inv_d = 1.0 / d
+            inv_sqrt_d = 1.0 / np.sqrt(d)
+
+            v = jv * np.sum(inv_d)
+            if v > 0.0:
+                t = np.sqrt(1.0 + v)
+                alpha = -1.0 / (t * (t + 1.0))
+            else:
+                alpha = -0.5
+
+            vtAmb = jv * np.einsum("i,ij->j", inv_d, x[idx, :])
+            scale = alpha * vtAmb
+            Wix[idx, :] += inv_sqrt_d[:, None] * scale[None, :]
+
+        return Wix
 
     def _solve_2D2(self, X, Z):
         """Solves :math:`Z^T N^{-1}X`, where :math:`X`
@@ -185,6 +212,35 @@ class ShermanMorrison(object):
 
         return ret
 
+    def cholsqrtsolve(self, other, left_array=None):
+        if other.ndim == 1:
+            shape = other.shape
+            ret = self._cholsqrtsolve_D2(other.reshape(-1, 1)).reshape(*shape)
+
+            if left_array is not None and left_array.ndim == 1:
+                ret = np.sum(left_array * ret)
+            elif left_array is not None:
+                raise NotImplementedError(
+                    "ShermanMorrison does not implement _cholsqrtsolve_1D2"
+                )
+        elif other.ndim == 2:
+            if left_array is None:
+                ret = self._cholsqrtsolve_D2(other)
+            elif left_array is not None and left_array.ndim == 2:
+                raise NotImplementedError(
+                    "ShermanMorrison does not implement _cholsqrtsolve_2D2"
+                )
+            elif left_array is not None and left_array.ndim == 1:
+                raise NotImplementedError(
+                    "ShermanMorrison does not implement _cholsqrtsolve_1D2"
+                )
+            else:
+                raise TypeError
+        else:
+            raise TypeError
+
+        return ret
+
 
 class FastShermanMorrison(ShermanMorrison):
     """Custom container class for Sherman-morrison array inversion."""
@@ -232,22 +288,28 @@ class FastShermanMorrison(ShermanMorrison):
 
         return yNx
 
+    def _cholsqrtsolve_D2(self, x):
+        """
+        Block-wise Cholesky forward solve :math:`L^{-1} X` for each
+        :math:`N_{block} = diag(d) + j \\, 1 1^T`,
+        using the Cython rank-1 Cholesky update.
+        """
+        if self._as_slice:
+            Lix = cfsm.cython_block_cholsqrtsolve_rank1(
+                x, self._nvec, self._jvec, self._uinds
+            )
+        else:
+            Lix = cfsm.cython_idx_cholsqrtsolve_rank1(
+                x, self._nvec, self._jvec, self._uinds, self._slc_isort
+            )
+
+        return Lix
+
     def _sqrtsolve_D2(self, x):
         """
-        Block‑wise solve   L_block^{-1} X_block
-        for each N_block = diag(d) + j * 1 1^T,
-        where L_block L_block^T = N_block,
-        using a true Cholesky rank‑1 update + forward triangular solve.
-
-        Parameters
-        ----------
-        X : ndarray, shape (n, ℓ)
-            Right‑hand sides.
-
-        Returns
-        -------
-        Nx : ndarray, shape (n, ℓ)
-            L^{-1} X.
+        Block-wise apply :math:`N^{-1/2} X` for each
+        :math:`N_{block} = diag(d) + j \\, 1 1^T`,
+        using the non-Cholesky closed-form inverse square-root update.
         """
         if self._as_slice:
             Lix = cfsm.cython_block_sqrtsolve_rank1(
@@ -333,18 +395,47 @@ class FastShermanMorrison(ShermanMorrison):
                 ret = np.sum(left_array * ret)
             elif left_array is not None:
                 raise NotImplementedError(
-                    "ShermanMorrison does not implement _sqrtsolve_1D2"
+                    "FastShermanMorrison does not implement _sqrtsolve_1D2"
                 )
         elif other.ndim == 2:
             if left_array is None:
                 ret = self._sqrtsolve_D2(other)
             elif left_array is not None and left_array.ndim == 2:
                 raise NotImplementedError(
-                    "ShermanMorrison does not implement _sqrtsolve_2D2"
+                    "FastShermanMorrison does not implement _sqrtsolve_2D2"
                 )
             elif left_array is not None and left_array.ndim == 1:
                 raise NotImplementedError(
-                    "ShermanMorrison does not implement _sqrtsolve_1D2"
+                    "FastShermanMorrison does not implement _sqrtsolve_1D2"
+                )
+            else:
+                raise TypeError
+        else:
+            raise TypeError
+
+        return ret
+
+    def cholsqrtsolve(self, other, left_array=None):
+        if other.ndim == 1:
+            shape = other.shape
+            ret = self._cholsqrtsolve_D2(other.reshape(-1, 1)).reshape(*shape)
+
+            if left_array is not None and left_array.ndim == 1:
+                ret = np.sum(left_array * ret)
+            elif left_array is not None:
+                raise NotImplementedError(
+                    "FastShermanMorrison does not implement _cholsqrtsolve_1D2"
+                )
+        elif other.ndim == 2:
+            if left_array is None:
+                ret = self._cholsqrtsolve_D2(other)
+            elif left_array is not None and left_array.ndim == 2:
+                raise NotImplementedError(
+                    "FastShermanMorrison does not implement _cholsqrtsolve_2D2"
+                )
+            elif left_array is not None and left_array.ndim == 1:
+                raise NotImplementedError(
+                    "FastShermanMorrison does not implement _cholsqrtsolve_1D2"
                 )
             else:
                 raise TypeError
