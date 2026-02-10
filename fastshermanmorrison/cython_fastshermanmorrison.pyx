@@ -567,9 +567,10 @@ def cython_block_shermor_2D_asymm(
     return Jldet, zNz
 
 
-def python_block_sqrtsolve_rank1(X, Nvec, Jvec, Uinds):
+def python_block_cholsqrtsolve_rank1(X, Nvec, Jvec, Uinds):
     """
-    Block‑wise solve L_block^{-1} X_block using true triangular rank‑1 update.
+    Block‑wise solve L_block^{-1} X_block using true triangular rank‑1 update
+    (Cholesky-based whitening).
 
     Parameters
     ----------
@@ -613,9 +614,9 @@ def python_block_sqrtsolve_rank1(X, Nvec, Jvec, Uinds):
     return Lix
 
 
-def python_idx_sqrtsolve_rank1(X, Nvec, Jvec, Uinds, slc_isort):
+def python_idx_cholsqrtsolve_rank1(X, Nvec, Jvec, Uinds, slc_isort):
     """
-    Indexed version: applies rank‑1 block solve to unsorted rows.
+    Indexed version: applies Cholesky rank‑1 block solve to unsorted rows.
     """
     Lix = X / np.sqrt(Nvec)[:,None]
     for bi, jv in enumerate(Jvec):
@@ -653,9 +654,74 @@ def python_idx_sqrtsolve_rank1(X, Nvec, Jvec, Uinds, slc_isort):
     return Lix
 
 
+def python_block_sqrtsolve_rank1(X, Nvec, Jvec, Uinds):
+    """
+    Block-wise apply (D + j * 1 1^T)^(-1/2) to X without Cholesky.
+
+    This returns a *whitening* transform W such that W^T W = (D + j 1 1^T)^(-1)
+    within each block. It is not triangular (unlike the Cholesky-based version).
+    """
+    sqrtN = np.sqrt(Nvec)
+    Wix = X / sqrtN[:, None]
+
+    for idx, jv in zip(Uinds, Jvec):
+        start, end = idx
+        if end <= start:
+            continue
+
+        d = Nvec[start:end]
+        inv_d = 1.0 / d
+        inv_sqrt_d = 1.0 / np.sqrt(d)
+
+        v = jv * np.sum(inv_d)
+        if v > 0.0:
+            t = np.sqrt(1.0 + v)
+            # Stable equivalent of (1/sqrt(1+v) - 1)/v
+            alpha = -1.0 / (t * (t + 1.0))
+        else:
+            alpha = -0.5
+
+        vtAmb = jv * np.einsum("i,ij->j", inv_d, X[start:end, :])
+        scale = alpha * vtAmb
+        Wix[start:end, :] += inv_sqrt_d[:, None] * scale[None, :]
+
+    return Wix
+
+
+def python_idx_sqrtsolve_rank1(X, Nvec, Jvec, Uinds, slc_isort):
+    """
+    Indexed version of `python_block_sqrtsolve_rank1`.
+    """
+    sqrtN = np.sqrt(Nvec)
+    Wix = X / sqrtN[:, None]
+
+    for bi, jv in enumerate(Jvec):
+        idx0, idx1 = Uinds[bi]
+        if idx1 <= idx0:
+            continue
+
+        pos = slc_isort[idx0:idx1]
+        d = Nvec[pos]
+        inv_d = 1.0 / d
+        inv_sqrt_d = 1.0 / np.sqrt(d)
+
+        v = jv * np.sum(inv_d)
+        if v > 0.0:
+            t = np.sqrt(1.0 + v)
+            alpha = -1.0 / (t * (t + 1.0))
+        else:
+            alpha = -0.5
+
+        vtAmb = jv * np.einsum("i,ij->j", inv_d, X[pos, :])
+        scale = alpha * vtAmb
+        Wix[pos, :] += inv_sqrt_d[:, None] * scale[None, :]
+
+    return Wix
+
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_block_sqrtsolve_rank1(
+def cython_block_cholsqrtsolve_rank1(
         cnp.ndarray[cnp.double_t, ndim=2] X,
         cnp.ndarray[cnp.double_t, ndim=1] Nvec,
         cnp.ndarray[cnp.double_t, ndim=1] Jvec,
@@ -718,7 +784,7 @@ def cython_block_sqrtsolve_rank1(
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cython_idx_sqrtsolve_rank1(
+def cython_idx_cholsqrtsolve_rank1(
         cnp.ndarray[cnp.double_t, ndim=2] X,
         cnp.ndarray[cnp.double_t, ndim=1] Nvec,
         cnp.ndarray[cnp.double_t, ndim=1] Jvec,
@@ -784,6 +850,156 @@ def cython_idx_sqrtsolve_rank1(
                 Lix[pos, j] = Yb[i, j]
 
     return Lix
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cython_block_sqrtsolve_rank1(
+        cnp.ndarray[cnp.double_t, ndim=2] X,
+        cnp.ndarray[cnp.double_t, ndim=1] Nvec,
+        cnp.ndarray[cnp.double_t, ndim=1] Jvec,
+        cnp.ndarray[cnp.int64_t, ndim=2] Uinds
+    ):
+    """
+    Block-wise apply (D + j * 1 1^T)^(-1/2) to X without Cholesky.
+
+    Returns a whitening transform W such that W^T W = (D + j 1 1^T)^(-1)
+    within each block.
+    """
+    cdef int n = X.shape[0]
+    cdef int l = X.shape[1]
+    cdef int k = Jvec.shape[0]
+    cdef int bi, i, j, idx0, idx1, blk_len
+    cdef double jv, v, t, alpha, sum_xdivn, scale
+
+    cdef cnp.ndarray[cnp.double_t, ndim=2] Wix = X.copy()
+    cdef cnp.ndarray[cnp.double_t, ndim=1] inv_d_arr
+    cdef cnp.ndarray[cnp.double_t, ndim=1] inv_sqrt_arr
+    cdef double[:] inv_d
+    cdef double[:] inv_sqrt
+
+    # First term: D^{-1/2} X
+    for i in range(n):
+        t = sqrt(Nvec[i])
+        for j in range(l):
+            Wix[i, j] /= t
+
+    for bi in range(k):
+        idx0 = Uinds[bi, 0]
+        idx1 = Uinds[bi, 1]
+        blk_len = idx1 - idx0
+        if blk_len <= 0:
+            continue
+
+        jv = Jvec[bi]
+
+        inv_d_arr = np.empty(blk_len, dtype=np.double)
+        inv_sqrt_arr = np.empty(blk_len, dtype=np.double)
+        inv_d = inv_d_arr
+        inv_sqrt = inv_sqrt_arr
+
+        v = 0.0
+        for i in range(blk_len):
+            inv_d[i] = 1.0 / Nvec[idx0 + i]
+            inv_sqrt[i] = 1.0 / sqrt(Nvec[idx0 + i])
+            v += inv_d[i]
+        v *= jv
+
+        if v > 0.0:
+            t = sqrt(1.0 + v)
+            # Stable equivalent of (1/sqrt(1+v) - 1)/v
+            alpha = -1.0 / (t * (t + 1.0))
+        else:
+            alpha = -0.5
+
+        for j in range(l):
+            sum_xdivn = 0.0
+            for i in range(blk_len):
+                sum_xdivn += X[idx0 + i, j] * inv_d[i]
+            scale = alpha * (jv * sum_xdivn)
+            if scale != 0.0:
+                for i in range(blk_len):
+                    Wix[idx0 + i, j] += inv_sqrt[i] * scale
+
+    return Wix
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cython_idx_sqrtsolve_rank1(
+        cnp.ndarray[cnp.double_t, ndim=2] X,
+        cnp.ndarray[cnp.double_t, ndim=1] Nvec,
+        cnp.ndarray[cnp.double_t, ndim=1] Jvec,
+        cnp.ndarray[cnp.int64_t, ndim=2] Uinds,
+        cnp.ndarray[cnp.int64_t, ndim=1] slc_isort
+    ):
+    """
+    Indexed version of `cython_block_sqrtsolve_rank1` for unsorted rows.
+    """
+    cdef int n = X.shape[0]
+    cdef int l = X.shape[1]
+    cdef int k = Jvec.shape[0]
+    cdef int bi, i, j, idx0, idx1, blk_len
+    cdef long pos
+    cdef double jv, v, t, alpha, sum_xdivn, scale
+
+    cdef cnp.ndarray[cnp.double_t, ndim=2] Wix = X.copy()
+    cdef cnp.ndarray[cnp.double_t, ndim=1] inv_d_arr
+    cdef cnp.ndarray[cnp.double_t, ndim=1] inv_sqrt_arr
+    cdef cnp.ndarray[cnp.int64_t, ndim=1] pos_arr
+    cdef double[:] inv_d
+    cdef double[:] inv_sqrt
+    cdef cnp.int64_t[:] posv
+
+    # First term: D^{-1/2} X
+    for i in range(n):
+        t = sqrt(Nvec[i])
+        for j in range(l):
+            Wix[i, j] /= t
+
+    for bi in range(k):
+        idx0 = Uinds[bi, 0]
+        idx1 = Uinds[bi, 1]
+        blk_len = idx1 - idx0
+        if blk_len <= 0:
+            continue
+
+        jv = Jvec[bi]
+
+        inv_d_arr = np.empty(blk_len, dtype=np.double)
+        inv_sqrt_arr = np.empty(blk_len, dtype=np.double)
+        pos_arr = np.empty(blk_len, dtype=np.int64)
+        inv_d = inv_d_arr
+        inv_sqrt = inv_sqrt_arr
+        posv = pos_arr
+
+        v = 0.0
+        for i in range(blk_len):
+            posv[i] = slc_isort[idx0 + i]
+            pos = posv[i]
+            inv_d[i] = 1.0 / Nvec[pos]
+            inv_sqrt[i] = 1.0 / sqrt(Nvec[pos])
+            v += inv_d[i]
+        v *= jv
+
+        if v > 0.0:
+            t = sqrt(1.0 + v)
+            alpha = -1.0 / (t * (t + 1.0))
+        else:
+            alpha = -0.5
+
+        for j in range(l):
+            sum_xdivn = 0.0
+            for i in range(blk_len):
+                pos = posv[i]
+                sum_xdivn += X[pos, j] * inv_d[i]
+            scale = alpha * (jv * sum_xdivn)
+            if scale != 0.0:
+                for i in range(blk_len):
+                    pos = posv[i]
+                    Wix[pos, j] += inv_sqrt[i] * scale
+
+    return Wix
 
 
 def python_draw_ecor(r, Nvec, Jvec, Uinds):
