@@ -400,9 +400,9 @@ class TestFastShermanMorrison(unittest.TestCase):
         sms, fsms, isort, iisort = self.get_shuffled_sm_objects()
 
         # Regular ShermanMorrison, with slice objects
-        #self.assertTrue(np.allclose(smr.sqrtsolve(x), sm.sqrtsolve(x)))
-        #self.assertTrue(np.allclose(smr.sqrtsolve(x, y), sm.sqrtsolve(x, y)))
-        #self.assertTrue(np.allclose(smr.sqrtsolve(X), sm.sqrtsolve(X)))
+        # self.assertTrue(np.allclose(smr.sqrtsolve(x), sm.sqrtsolve(x)))
+        # self.assertTrue(np.allclose(smr.sqrtsolve(x, y), sm.sqrtsolve(x, y)))
+        # self.assertTrue(np.allclose(smr.sqrtsolve(X), sm.sqrtsolve(X)))
 
         # Fast ShermanMorrison, with slice objects
         self.assertTrue(np.allclose(smr.sqrtsolve(x), fsm.sqrtsolve(x)))
@@ -410,8 +410,8 @@ class TestFastShermanMorrison(unittest.TestCase):
         self.assertTrue(np.allclose(smr.sqrtsolve(X), fsm.sqrtsolve(X)))
 
         # Regular SermanMorrison, shuffled data
-        #self.assertTrue(np.allclose(smr.sqrtsolve(x), sms.sqrtsolve(x[isort])[iisort]))
-        #self.assertTrue(np.allclose(smr.sqrtsolve(X), sms.sqrtsolve(X[isort])[iisort]))
+        # self.assertTrue(np.allclose(smr.sqrtsolve(x), sms.sqrtsolve(x[isort])[iisort]))
+        # self.assertTrue(np.allclose(smr.sqrtsolve(X), sms.sqrtsolve(X[isort])[iisort]))
 
         # Fast SermanMorrison, shuffled data
         self.assertTrue(np.allclose(smr.sqrtsolve(x), fsms.sqrtsolve(x[isort])[iisort]))
@@ -528,20 +528,20 @@ class TestFastShermanMorrison(unittest.TestCase):
         self.assertTrue(np.allclose(smr.cholsqrtsolve(X), fsm.cholsqrtsolve(X)))
 
         # ShermanMorrison, shuffled data
-        self.assertTrue(np.allclose(
-            smr.cholsqrtsolve(x), sms.cholsqrtsolve(x[isort])[iisort]
-        ))
-        self.assertTrue(np.allclose(
-            smr.cholsqrtsolve(X), sms.cholsqrtsolve(X[isort])[iisort]
-        ))
+        self.assertTrue(
+            np.allclose(smr.cholsqrtsolve(x), sms.cholsqrtsolve(x[isort])[iisort])
+        )
+        self.assertTrue(
+            np.allclose(smr.cholsqrtsolve(X), sms.cholsqrtsolve(X[isort])[iisort])
+        )
 
         # FastShermanMorrison, shuffled data
-        self.assertTrue(np.allclose(
-            smr.cholsqrtsolve(x), fsms.cholsqrtsolve(x[isort])[iisort]
-        ))
-        self.assertTrue(np.allclose(
-            smr.cholsqrtsolve(X), fsms.cholsqrtsolve(X[isort])[iisort]
-        ))
+        self.assertTrue(
+            np.allclose(smr.cholsqrtsolve(x), fsms.cholsqrtsolve(x[isort])[iisort])
+        )
+        self.assertTrue(
+            np.allclose(smr.cholsqrtsolve(X), fsms.cholsqrtsolve(X[isort])[iisort])
+        )
 
         # NotImplementedError checks
         with self.assertRaises(NotImplementedError):
