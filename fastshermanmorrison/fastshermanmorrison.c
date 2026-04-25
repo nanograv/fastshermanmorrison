@@ -15,8 +15,6 @@ extern void dgemm_(char *transa, char *transb, int *m, int *n, int *k,
 extern void dgemv_(char *trans, int *m, int *n, double *alpha, double *a,
                           int *lda, double *x, int *incx, double *beta,
                           double *y, int *incy);
-extern void dger_(int *m, int *n, double *alpha, double *x, int *incx,
-                          double *y, int *incy, double *a, int *lda);
 
 static void blas_block_shermor_2D_asym(
                 int n_Z1_rows,
@@ -54,16 +52,16 @@ static void blas_block_shermor_2D_asym(
      * :param pd_Jldet:         The return value of log(det(J))
      */
 
-    double d_galpha=1.0, d_gbeta=0.0, d_nisum=0.0, d_beta;
-    double *pd_Z1ni, *pd_ZNZ_add, *pd_ni, *pd_zn1, *pd_zn2;
-    int cc, i, j, m, n, k, lda, ldb, ldc, n_jblock, n_jblock_i, n_index;
+    double d_galpha=1.0, d_gbeta=0.0, d_nisum=0.0, d_beta, d_sqrt_beta;
+    double d_neg_one=-1.0, d_one=1.0;
+    double *pd_Z1ni, *pd_ni, *pd_V, *pd_W;
+    int cc, i, j, m, n, k, lda, ldb, ldc, n_jblock, n_jblock_i, n_index, n_valid;
     char *transa, *transb;
 
     pd_Z1ni = malloc(n_Z1_rows*n_Z1_cols * sizeof(double));
-    pd_ZNZ_add = calloc(n_Z1_rows*n_Z1_cols, sizeof(double));
     pd_ni = malloc(n_Z1_rows * sizeof(double));
-    pd_zn1 = calloc(n_Z1_cols, sizeof(double));
-    pd_zn2 = calloc(n_Z2_cols, sizeof(double));
+    pd_V = calloc(n_J_rows * n_Z1_cols, sizeof(double));
+    pd_W = calloc(n_J_rows * n_Z2_cols, sizeof(double));
 
     /* openmp this? */
     for(i=0; i<n_Z1_rows; ++i) {
@@ -100,6 +98,7 @@ static void blas_block_shermor_2D_asym(
            &d_gbeta, pd_ZNZ, &ldc);
 
     *pd_Jldet = 0.0;
+    n_valid = 0;
     for(cc=0; cc<n_J_rows; ++cc) {
         if(pd_Jvec[cc] > 0.0) {
 
@@ -112,9 +111,9 @@ static void blas_block_shermor_2D_asym(
             } /* for i */
 
             d_beta = -1.0 / (d_nisum + 1.0/pd_Jvec[cc]);
+            d_sqrt_beta = sqrt(-d_beta);
 
-            /* Calculate zn1 = np.dot(niblock, Zblock1) */
-            /* Use dgemv */
+            /* Calculate V[n_valid,:] = np.sqrt(-beta) * np.dot(niblock, Zblock1) */
             lda = 1;
             ldc = 1;
             if(n_Z1_row_major) {
@@ -130,11 +129,11 @@ static void blas_block_shermor_2D_asym(
                 ldb = n_Z1_rows;
                 n_index = n_jblock_i;
             }
-            dgemv_(transb, &m, &n, &d_galpha, &pd_Z1[n_index], &ldb,
-                    &pd_ni[n_jblock_i], &lda, &d_gbeta, pd_zn1, &ldc);
+            dgemv_(transb, &m, &n, &d_sqrt_beta, &pd_Z1[n_index], &ldb,
+                    &pd_ni[n_jblock_i], &lda, &d_gbeta,
+                    &pd_V[n_valid * n_Z1_cols], &ldc);
 
-            /* Calculate zn2 = np.dot(niblock, Zblock2) */
-            /* Use dgemv */
+            /* Calculate W[n_valid,:] = np.sqrt(-beta) * np.dot(niblock, Zblock2) */
             lda = 1;
             ldc = 1;
             if(n_Z2_row_major) {
@@ -150,30 +149,33 @@ static void blas_block_shermor_2D_asym(
                 ldb = n_Z1_rows;
                 n_index = n_jblock_i;
             }
-            dgemv_(transb, &m, &n, &d_galpha, &pd_Z2[n_index], &ldb,
-                    &pd_ni[n_jblock_i], &lda, &d_gbeta, pd_zn2, &ldc);
-
-            /* Calculate zNz -= beta * np.outer(zn1.T, zn2) */
-            m = n_Z1_cols;
-            n = n_Z2_cols;
-            k = 1;
-            lda = 1;
-            ldb = 1;
-            ldc = m;
-            dger_(&m, &n, &d_beta, pd_zn1, &lda, pd_zn2, &ldb, pd_ZNZ, &ldc);
+            dgemv_(transb, &m, &n, &d_sqrt_beta, &pd_Z2[n_index], &ldb,
+                    &pd_ni[n_jblock_i], &lda, &d_gbeta,
+                    &pd_W[n_valid * n_Z2_cols], &ldc);
 
             *pd_Jldet += log(pd_Jvec[cc]) - log(-d_beta);
+            n_valid++;
 
         } /* if pd_Jvec[cc] */
     } /* for cc */
 
-
+    /* Calculate ZNZ -= np.dot(V.T, W)
+     * (equivalent to: for each epoch i, ZNZ -= beta_i * np.outer(zn1_i, zn2_i);
+     *  one batched dgemm instead of E rank-1 dger updates)
+     * V is row-major (n_valid x n_Z1_cols) = col-major (n_Z1_cols x n_valid)
+     * W is row-major (n_valid x n_Z2_cols) = col-major (n_Z2_cols x n_valid) */
+    if(n_valid > 0) {
+        m = n_Z1_cols;
+        n = n_Z2_cols;
+        k = n_valid;
+        dgemm_("N", "T", &m, &n, &k, &d_neg_one, pd_V, &m,
+               pd_W, &n, &d_one, pd_ZNZ, &m);
+    }
 
     free(pd_ni);
-    free(pd_ZNZ_add);
     free(pd_Z1ni);
-    free(pd_zn1);
-    free(pd_zn2);
+    free(pd_V);
+    free(pd_W);
 
     return;
 
