@@ -114,6 +114,7 @@ static void blas_block_shermor_2D_asym(
             d_sqrt_beta = sqrt(-d_beta);
 
             /* Calculate V[n_valid,:] = np.sqrt(-beta) * np.dot(niblock, Zblock1) */
+            /* Use dgemv */
             lda = 1;
             ldc = 1;
             if(n_Z1_row_major) {
@@ -134,6 +135,7 @@ static void blas_block_shermor_2D_asym(
                     &pd_V[n_valid * n_Z1_cols], &ldc);
 
             /* Calculate W[n_valid,:] = np.sqrt(-beta) * np.dot(niblock, Zblock2) */
+            /* Use dgemv */
             lda = 1;
             ldc = 1;
             if(n_Z2_row_major) {
@@ -160,8 +162,7 @@ static void blas_block_shermor_2D_asym(
     } /* for cc */
 
     /* Calculate ZNZ -= np.dot(V.T, W)
-     * (equivalent to: for each epoch i, ZNZ -= beta_i * np.outer(zn1_i, zn2_i);
-     *  one batched dgemm instead of E rank-1 dger updates)
+     * use dgemm
      * V is row-major (n_valid x n_Z1_cols) = col-major (n_Z1_cols x n_valid)
      * W is row-major (n_valid x n_Z2_cols) = col-major (n_Z2_cols x n_valid) */
     if(n_valid > 0) {
