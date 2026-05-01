@@ -872,20 +872,18 @@ def cython_block_sqrtsolve_rank1(
     cdef int bi, i, j, idx0, idx1, blk_len
     cdef double jv, v, t, alpha, sum_xdivn, scale
 
-    cdef cnp.ndarray[cnp.double_t, ndim=2] Wix = X.copy()
-    # Route every hot-path array access through typed memoryviews. The ::1 in
-    # the inner-most axis declares unit-stride at compile time, unblocking SIMD
-    # vectorization of the first-term inner j-loop under -O2 -fno-wrapv and
-    # giving the compiler tighter scalar code in the per-block reduction
-    # (where strided + FP-reduction prevents SIMD but cleaner addressing still
-    # helps). ascontiguousarray is a no-op for already-C-contiguous arrays.
-    cdef double[:, ::1] X_v = np.ascontiguousarray(X)
+    cdef cnp.ndarray[cnp.double_t, ndim=2] Wix = X.copy(order='C')
+    # Wix gets a C-contig declaration -- the ::1 on the inner axis is what
+    # unblocks SIMD vectorization of the first-term inner j-loop under
+    # -O2 -fno-wrapv. Inputs are accessed strided (per-block reduction) or
+    # only at outer-loop boundaries, so they don't need contig declarations
+    # -- generic memoryviews let non-C-contig callers avoid a copy.
     cdef double[:, ::1] Wix_v = Wix
-    cdef double[::1] Nvec_v = np.ascontiguousarray(Nvec)
-    cdef double[::1] Jvec_v = np.ascontiguousarray(Jvec)
-    cdef cnp.int64_t[:, ::1] Uinds_v = np.ascontiguousarray(Uinds)
-    # Scratch buffers allocated once at function entry and reused across all
-    # blocks. Sized to n, the max possible blk_len.
+    cdef double[:, :] X_v = X
+    cdef double[:] Nvec_v = Nvec
+    cdef double[:] Jvec_v = Jvec
+    cdef cnp.int64_t[:, :] Uinds_v = Uinds
+    # Scratch buffers allocated once and reused across all blocks
     cdef cnp.ndarray[cnp.double_t, ndim=1] inv_d_arr    = np.empty(n, dtype=np.double)
     cdef cnp.ndarray[cnp.double_t, ndim=1] inv_sqrt_arr = np.empty(n, dtype=np.double)
     cdef double[:] inv_d    = inv_d_arr
@@ -951,15 +949,15 @@ def cython_idx_sqrtsolve_rank1(
     cdef long pos
     cdef double jv, v, t, alpha, sum_xdivn, scale
 
-    cdef cnp.ndarray[cnp.double_t, ndim=2] Wix = X.copy()
+    cdef cnp.ndarray[cnp.double_t, ndim=2] Wix = X.copy(order='C')
     # Same memoryview routing as in cython_block_sqrtsolve_rank1.
-    cdef double[:, ::1] X_v = np.ascontiguousarray(X)
     cdef double[:, ::1] Wix_v = Wix
-    cdef double[::1] Nvec_v = np.ascontiguousarray(Nvec)
-    cdef double[::1] Jvec_v = np.ascontiguousarray(Jvec)
-    cdef cnp.int64_t[:, ::1] Uinds_v = np.ascontiguousarray(Uinds)
-    cdef cnp.int64_t[::1] slc_isort_v = np.ascontiguousarray(slc_isort)
-    # Reusable scratch buffers (also same as cython_block_sqrtsolve_rank1).
+    cdef double[:, :] X_v = X
+    cdef double[:] Nvec_v = Nvec
+    cdef double[:] Jvec_v = Jvec
+    cdef cnp.int64_t[:, :] Uinds_v = Uinds
+    cdef cnp.int64_t[:] slc_isort_v = slc_isort
+    # Reusable scratch buffers.
     cdef cnp.ndarray[cnp.double_t, ndim=1] inv_d_arr    = np.empty(n, dtype=np.double)
     cdef cnp.ndarray[cnp.double_t, ndim=1] inv_sqrt_arr = np.empty(n, dtype=np.double)
     cdef cnp.ndarray[cnp.int64_t,  ndim=1] pos_arr      = np.empty(n, dtype=np.int64)
