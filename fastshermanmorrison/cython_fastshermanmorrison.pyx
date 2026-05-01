@@ -873,35 +873,43 @@ def cython_block_sqrtsolve_rank1(
     cdef double jv, v, t, alpha, sum_xdivn, scale
 
     cdef cnp.ndarray[cnp.double_t, ndim=2] Wix = X.copy()
-    cdef cnp.ndarray[cnp.double_t, ndim=1] inv_d_arr
-    cdef cnp.ndarray[cnp.double_t, ndim=1] inv_sqrt_arr
-    cdef double[:] inv_d
-    cdef double[:] inv_sqrt
+    # Route every hot-path array access through typed memoryviews. The ::1 in
+    # the inner-most axis declares unit-stride at compile time, unblocking SIMD
+    # vectorization of the first-term inner j-loop under -O2 -fno-wrapv and
+    # giving the compiler tighter scalar code in the per-block reduction
+    # (where strided + FP-reduction prevents SIMD but cleaner addressing still
+    # helps). ascontiguousarray is a no-op for already-C-contiguous arrays.
+    cdef double[:, ::1] X_v = np.ascontiguousarray(X)
+    cdef double[:, ::1] Wix_v = Wix
+    cdef double[::1] Nvec_v = np.ascontiguousarray(Nvec)
+    cdef double[::1] Jvec_v = np.ascontiguousarray(Jvec)
+    cdef cnp.int64_t[:, ::1] Uinds_v = np.ascontiguousarray(Uinds)
+    # Scratch buffers allocated once at function entry and reused across all
+    # blocks. Sized to n, the max possible blk_len.
+    cdef cnp.ndarray[cnp.double_t, ndim=1] inv_d_arr    = np.empty(n, dtype=np.double)
+    cdef cnp.ndarray[cnp.double_t, ndim=1] inv_sqrt_arr = np.empty(n, dtype=np.double)
+    cdef double[:] inv_d    = inv_d_arr
+    cdef double[:] inv_sqrt = inv_sqrt_arr
 
     # First term: D^{-1/2} X
     for i in range(n):
-        t = sqrt(Nvec[i])
+        t = sqrt(Nvec_v[i])
         for j in range(l):
-            Wix[i, j] /= t
+            Wix_v[i, j] /= t
 
     for bi in range(k):
-        idx0 = Uinds[bi, 0]
-        idx1 = Uinds[bi, 1]
+        idx0 = Uinds_v[bi, 0]
+        idx1 = Uinds_v[bi, 1]
         blk_len = idx1 - idx0
         if blk_len <= 0:
             continue
 
-        jv = Jvec[bi]
-
-        inv_d_arr = np.empty(blk_len, dtype=np.double)
-        inv_sqrt_arr = np.empty(blk_len, dtype=np.double)
-        inv_d = inv_d_arr
-        inv_sqrt = inv_sqrt_arr
+        jv = Jvec_v[bi]
 
         v = 0.0
         for i in range(blk_len):
-            inv_d[i] = 1.0 / Nvec[idx0 + i]
-            inv_sqrt[i] = 1.0 / sqrt(Nvec[idx0 + i])
+            inv_d[i] = 1.0 / Nvec_v[idx0 + i]
+            inv_sqrt[i] = 1.0 / sqrt(Nvec_v[idx0 + i])
             v += inv_d[i]
         v *= jv
 
@@ -915,11 +923,11 @@ def cython_block_sqrtsolve_rank1(
         for j in range(l):
             sum_xdivn = 0.0
             for i in range(blk_len):
-                sum_xdivn += X[idx0 + i, j] * inv_d[i]
+                sum_xdivn += X_v[idx0 + i, j] * inv_d[i]
             scale = alpha * (jv * sum_xdivn)
             if scale != 0.0:
                 for i in range(blk_len):
-                    Wix[idx0 + i, j] += inv_sqrt[i] * scale
+                    Wix_v[idx0 + i, j] += inv_sqrt[i] * scale
 
     return Wix
 
@@ -944,41 +952,42 @@ def cython_idx_sqrtsolve_rank1(
     cdef double jv, v, t, alpha, sum_xdivn, scale
 
     cdef cnp.ndarray[cnp.double_t, ndim=2] Wix = X.copy()
-    cdef cnp.ndarray[cnp.double_t, ndim=1] inv_d_arr
-    cdef cnp.ndarray[cnp.double_t, ndim=1] inv_sqrt_arr
-    cdef cnp.ndarray[cnp.int64_t, ndim=1] pos_arr
-    cdef double[:] inv_d
-    cdef double[:] inv_sqrt
-    cdef cnp.int64_t[:] posv
+    # Same memoryview routing as in cython_block_sqrtsolve_rank1.
+    cdef double[:, ::1] X_v = np.ascontiguousarray(X)
+    cdef double[:, ::1] Wix_v = Wix
+    cdef double[::1] Nvec_v = np.ascontiguousarray(Nvec)
+    cdef double[::1] Jvec_v = np.ascontiguousarray(Jvec)
+    cdef cnp.int64_t[:, ::1] Uinds_v = np.ascontiguousarray(Uinds)
+    cdef cnp.int64_t[::1] slc_isort_v = np.ascontiguousarray(slc_isort)
+    # Reusable scratch buffers (also same as cython_block_sqrtsolve_rank1).
+    cdef cnp.ndarray[cnp.double_t, ndim=1] inv_d_arr    = np.empty(n, dtype=np.double)
+    cdef cnp.ndarray[cnp.double_t, ndim=1] inv_sqrt_arr = np.empty(n, dtype=np.double)
+    cdef cnp.ndarray[cnp.int64_t,  ndim=1] pos_arr      = np.empty(n, dtype=np.int64)
+    cdef double[:] inv_d    = inv_d_arr
+    cdef double[:] inv_sqrt = inv_sqrt_arr
+    cdef cnp.int64_t[:] posv = pos_arr
 
     # First term: D^{-1/2} X
     for i in range(n):
-        t = sqrt(Nvec[i])
+        t = sqrt(Nvec_v[i])
         for j in range(l):
-            Wix[i, j] /= t
+            Wix_v[i, j] /= t
 
     for bi in range(k):
-        idx0 = Uinds[bi, 0]
-        idx1 = Uinds[bi, 1]
+        idx0 = Uinds_v[bi, 0]
+        idx1 = Uinds_v[bi, 1]
         blk_len = idx1 - idx0
         if blk_len <= 0:
             continue
 
-        jv = Jvec[bi]
-
-        inv_d_arr = np.empty(blk_len, dtype=np.double)
-        inv_sqrt_arr = np.empty(blk_len, dtype=np.double)
-        pos_arr = np.empty(blk_len, dtype=np.int64)
-        inv_d = inv_d_arr
-        inv_sqrt = inv_sqrt_arr
-        posv = pos_arr
+        jv = Jvec_v[bi]
 
         v = 0.0
         for i in range(blk_len):
-            posv[i] = slc_isort[idx0 + i]
+            posv[i] = slc_isort_v[idx0 + i]
             pos = posv[i]
-            inv_d[i] = 1.0 / Nvec[pos]
-            inv_sqrt[i] = 1.0 / sqrt(Nvec[pos])
+            inv_d[i] = 1.0 / Nvec_v[pos]
+            inv_sqrt[i] = 1.0 / sqrt(Nvec_v[pos])
             v += inv_d[i]
         v *= jv
 
@@ -992,12 +1001,12 @@ def cython_idx_sqrtsolve_rank1(
             sum_xdivn = 0.0
             for i in range(blk_len):
                 pos = posv[i]
-                sum_xdivn += X[pos, j] * inv_d[i]
+                sum_xdivn += X_v[pos, j] * inv_d[i]
             scale = alpha * (jv * sum_xdivn)
             if scale != 0.0:
                 for i in range(blk_len):
                     pos = posv[i]
-                    Wix[pos, j] += inv_sqrt[i] * scale
+                    Wix_v[pos, j] += inv_sqrt[i] * scale
 
     return Wix
 
